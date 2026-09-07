@@ -1,0 +1,6 @@
+{
+  "name": "Control de Asistencia",
+  "description": "Sistema privado de control y auditoría de asistencia con gestión Scrum por roles (Product Owner, Scrum Master, Dev Team y Stakeholder), consolidación multisede y reportes ejecutivos.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
