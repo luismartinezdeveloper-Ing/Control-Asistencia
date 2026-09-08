@@ -28,9 +28,16 @@ export const ExecutiveEmployeeFinder: React.FC<ExecutiveEmployeeFinderProps> = (
   onOpenJustification,
 }) => {
   const [searchTerm, setSearchTerm] = useState('');
+  const [selectedSite, setSelectedSite] = useState<string>('ALL');
   const [filterType, setFilterType] = useState<
     'ALL' | 'ABSENCE' | 'JUSTIFIED' | 'DEFICIT' | 'OPTIMAL'
   >('ALL');
+  const [visibleCount, setVisibleCount] = useState<number>(6);
+
+  // Reset pagination batch when filters or search change
+  React.useEffect(() => {
+    setVisibleCount(6);
+  }, [searchTerm, selectedSite, filterType]);
 
   // Build employee cards with latest status
   const employeeDetails = useMemo(() => {
@@ -56,9 +63,23 @@ export const ExecutiveEmployeeFinder: React.FC<ExecutiveEmployeeFinderProps> = (
     });
   }, [employees, records]);
 
+  // Extract unique available sites dynamically
+  const availableSites = useMemo(() => {
+    const set = new Set<string>();
+    employeeDetails.forEach((emp) => {
+      if (emp.site) set.add(emp.site);
+    });
+    return Array.from(set).sort();
+  }, [employeeDetails]);
+
   // Filter list
   const filtered = useMemo(() => {
     return employeeDetails.filter((emp) => {
+      // Sede Filter
+      if (selectedSite !== 'ALL' && emp.site !== selectedSite) {
+        return false;
+      }
+
       // Search
       if (searchTerm.trim()) {
         const term = searchTerm.toLowerCase();
@@ -76,7 +97,11 @@ export const ExecutiveEmployeeFinder: React.FC<ExecutiveEmployeeFinderProps> = (
 
       return true;
     });
-  }, [employeeDetails, searchTerm, filterType]);
+  }, [employeeDetails, searchTerm, selectedSite, filterType]);
+
+  const visibleCards = useMemo(() => {
+    return filtered.slice(0, visibleCount);
+  }, [filtered, visibleCount]);
 
   return (
     <section id="executive-employee-finder" className="bg-white rounded-2xl border border-slate-200/90 p-5 shadow-xs space-y-4">
@@ -87,20 +112,38 @@ export const ExecutiveEmployeeFinder: React.FC<ExecutiveEmployeeFinderProps> = (
             <span>Fichas de Colaboradores (Directorio Ejecutivo)</span>
           </h3>
           <p className="text-xs text-slate-500">
-            Consulta rápida del estado de asistencia de cada colaborador sin tablas complejas.
+            Consulta rápida del estado de asistencia de cada colaborador en lotes progresivos de 6.
           </p>
         </div>
 
-        {/* Search Input */}
-        <div className="relative w-full md:w-80">
-          <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
-          <input
-            type="text"
-            value={searchTerm}
-            onChange={(e) => setSearchTerm(e.target.value)}
-            placeholder="Buscar por nombre, cargo o sede..."
-            className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:border-[#1F4E79] focus:outline-none transition-all"
-          />
+        <div className="flex flex-wrap items-center gap-2 w-full md:w-auto">
+          {/* Site Selector */}
+          <div className="relative flex-1 md:flex-none">
+            <select
+              value={selectedSite}
+              onChange={(e) => setSelectedSite(e.target.value)}
+              className="w-full md:w-48 px-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-semibold text-slate-700 focus:bg-white focus:border-[#1F4E79] focus:outline-none transition-all cursor-pointer"
+            >
+              <option value="ALL">Todas las Sedes ({employeeDetails.length})</option>
+              {availableSites.map((site) => (
+                <option key={site} value={site}>
+                  Sede: {site}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          {/* Search Input */}
+          <div className="relative flex-1 md:w-64">
+            <Search className="w-4 h-4 absolute left-3 top-2.5 text-slate-400" />
+            <input
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Buscar por nombre, cargo o sede..."
+              className="w-full pl-9 pr-3 py-1.5 bg-slate-50 border border-slate-200 rounded-xl text-xs font-medium text-slate-800 placeholder-slate-400 focus:bg-white focus:border-[#1F4E79] focus:outline-none transition-all"
+            />
+          </div>
         </div>
       </div>
 
@@ -180,8 +223,9 @@ export const ExecutiveEmployeeFinder: React.FC<ExecutiveEmployeeFinderProps> = (
           No se encontraron colaboradores que coincidan con la búsqueda.
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map((emp) => {
+        <>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+            {visibleCards.map((emp) => {
             const initials = emp.employeeName
               .split(' ')
               .map((n) => n[0])
@@ -293,7 +337,42 @@ export const ExecutiveEmployeeFinder: React.FC<ExecutiveEmployeeFinderProps> = (
               </div>
             );
           })}
-        </div>
+          </div>
+
+          {/* Progressive Load Button Bar */}
+          <div className="mt-4 pt-3 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3">
+            <p className="text-xs text-slate-500 font-medium">
+              Mostrando <strong className="text-slate-800 font-bold">{visibleCards.length}</strong> de{' '}
+              <strong className="text-slate-800 font-bold">{filtered.length}</strong> colaboradores
+              {filtered.length > visibleCards.length && (
+                <span className="text-slate-400 font-normal ml-1">
+                  ({filtered.length - visibleCards.length} restantes)
+                </span>
+              )}
+            </p>
+
+            {visibleCount < filtered.length && (
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((prev) => prev + 6)}
+                  className="px-4 py-2 bg-[#1F4E79] hover:bg-[#153859] text-white rounded-xl text-xs font-bold transition-all shadow-xs hover:shadow-md cursor-pointer flex items-center gap-1.5"
+                >
+                  <span>Ver más colaboradores (+6)</span>
+                </button>
+                {filtered.length > 12 && (
+                  <button
+                    type="button"
+                    onClick={() => setVisibleCount(filtered.length)}
+                    className="px-3 py-2 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl text-xs font-semibold transition-all cursor-pointer"
+                  >
+                    Mostrar todos ({filtered.length})
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+        </>
       )}
     </section>
   );

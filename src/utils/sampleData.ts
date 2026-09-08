@@ -713,14 +713,36 @@ export function computeEmployeeSummaries(records: AttendanceRecord[]): EmployeeS
         totalGross: 0,
         totalNet: 0,
         totalScheduled: 0,
+        diurnalOvertime: 0,
+        nocturnalOvertime: 0,
+        holidayWorked: 0,
+        unjustifiedAbsences: 0,
       });
     }
 
     const current = map.get(r.employeeName)!;
     current.totalDays += 1;
 
+    // Accumulate HR Overtime & Holiday
+    if (r.diurnalOvertimeHours) {
+      current.diurnalOvertime += r.diurnalOvertimeHours;
+    } else if (r.varianceHours > 0 && !r.isNeutralCase && !r.isAbsence) {
+      current.diurnalOvertime += r.varianceHours;
+    }
+
+    if (r.nocturnalOvertimeHours) {
+      current.nocturnalOvertime += r.nocturnalOvertimeHours;
+    }
+
+    if (r.holidayWorkedHours) {
+      current.holidayWorked += r.holidayWorkedHours;
+    } else if (r.isHoliday) {
+      current.holidayWorked += r.netHours;
+    }
+
     if (r.status === 'INASISTENCIA' || (r.isAbsence && !r.isJustified)) {
       current.absenceDays += 1;
+      current.unjustifiedAbsences += 1;
       current.validDays += 1;
       current.totalScheduled += r.scheduledHours || 8.0;
       // 0 net hours added
@@ -770,6 +792,10 @@ export function computeEmployeeSummaries(records: AttendanceRecord[]): EmployeeS
       varianceHours: variance,
       complianceRate: rate,
       status,
+      diurnalOvertimeHours: Math.round(data.diurnalOvertime * 100) / 100,
+      nocturnalOvertimeHours: Math.round(data.nocturnalOvertime * 100) / 100,
+      holidayWorkedHours: Math.round(data.holidayWorked * 100) / 100,
+      unjustifiedAbsenceCount: data.unjustifiedAbsences,
     });
   });
 

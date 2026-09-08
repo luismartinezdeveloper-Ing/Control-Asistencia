@@ -90,7 +90,7 @@ export function exportConsolidatedExcel(
   XLSX.utils.book_append_sheet(wb, wsControl, 'Panel de Control');
 
   // -------------------------------------------------------------
-  // Sheet 2: Resumen por Empleado
+  // Sheet 2: Resumen por Empleado & Novedades de Nómina
   // -------------------------------------------------------------
   const employeeData: (string | number)[][] = [
     [
@@ -104,6 +104,10 @@ export function exportConsolidatedExcel(
       'Horas Netas (h)',
       'Horas Programadas (h)',
       'Diferencia / Balance (h)',
+      'HE Diurnas (h)',
+      'HE Nocturnas (h)',
+      'Horas Feriadas (h)',
+      'Faltas Injustificadas',
       '% Cumplimiento',
       'Estado',
     ],
@@ -125,6 +129,10 @@ export function exportConsolidatedExcel(
       emp.totalNetHours,
       emp.totalScheduledHours,
       emp.varianceHours,
+      emp.diurnalOvertimeHours || 0,
+      emp.nocturnalOvertimeHours || 0,
+      emp.holidayWorkedHours || 0,
+      emp.unjustifiedAbsenceCount || 0,
       `${emp.complianceRate.toFixed(1)}%`,
       estado,
     ]);
@@ -142,6 +150,10 @@ export function exportConsolidatedExcel(
     { wch: 16 },
     { wch: 22 },
     { wch: 22 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 20 },
+    { wch: 20 },
     { wch: 16 },
     { wch: 18 },
   ];

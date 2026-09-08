@@ -41,6 +41,12 @@ export const EmployeesRosterView: React.FC<EmployeesRosterViewProps> = ({
   const [selectedFile, setSelectedFile] = useState<string>('ALL');
   const [selectedStatus, setSelectedStatus] = useState<string>('ALL');
   const [verificationQuery, setVerificationQuery] = useState('');
+  const [visibleCount, setVisibleCount] = useState<number>(6);
+
+  // Reset visibleCount batch on filter changes
+  React.useEffect(() => {
+    setVisibleCount(6);
+  }, [searchTerm, selectedSite, selectedFile, selectedStatus]);
 
   // Map each employee to the source files they appear in
   const employeeSourceFilesMap = useMemo(() => {
@@ -114,6 +120,10 @@ export const EmployeesRosterView: React.FC<EmployeesRosterViewProps> = ({
       return true;
     });
   }, [employeeSummaries, searchTerm, selectedSite, selectedStatus, selectedFile, employeeSourceFilesMap]);
+
+  const visibleEmployees = useMemo(() => {
+    return filteredEmployees.slice(0, visibleCount);
+  }, [filteredEmployees, visibleCount]);
 
   // Verification check results
   const verificationResult = useMemo(() => {
@@ -399,8 +409,8 @@ export const EmployeesRosterView: React.FC<EmployeesRosterViewProps> = ({
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredEmployees.length > 0 ? (
-                filteredEmployees.map((emp, index) => {
+              {visibleEmployees.length > 0 ? (
+                visibleEmployees.map((emp, index) => {
                   const sourceFiles = Array.from(
                     employeeSourceFilesMap.get(emp.employeeName) || []
                   );
@@ -502,6 +512,40 @@ export const EmployeesRosterView: React.FC<EmployeesRosterViewProps> = ({
               )}
             </tbody>
           </table>
+        </div>
+
+        {/* Master Table Pagination Footer */}
+        <div className="mt-3 pt-2 border-t border-slate-100 flex flex-col sm:flex-row items-center justify-between gap-3 text-xs">
+          <p className="text-slate-500 font-medium">
+            Mostrando <strong className="text-slate-800 font-bold">{visibleEmployees.length}</strong> de{' '}
+            <strong className="text-slate-800 font-bold">{filteredEmployees.length}</strong> colaboradores
+            {filteredEmployees.length > visibleEmployees.length && (
+              <span className="text-slate-400 font-normal ml-1">
+                ({filteredEmployees.length - visibleEmployees.length} restantes)
+              </span>
+            )}
+          </p>
+
+          {visibleCount < filteredEmployees.length && (
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setVisibleCount((prev) => prev + 6)}
+                className="px-4 py-1.5 bg-[#1F4E79] hover:bg-[#153859] text-white rounded-xl font-bold transition-all shadow-xs cursor-pointer"
+              >
+                Ver más colaboradores (+6)
+              </button>
+              {filteredEmployees.length > 12 && (
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount(filteredEmployees.length)}
+                  className="px-3 py-1.5 bg-slate-100 hover:bg-slate-200 text-slate-700 rounded-xl font-semibold transition-all cursor-pointer"
+                >
+                  Mostrar todos ({filteredEmployees.length})
+                </button>
+              )}
+            </div>
+          )}
         </div>
       </div>
     </div>

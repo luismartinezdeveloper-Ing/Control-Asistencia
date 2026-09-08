@@ -8,6 +8,7 @@ import {
   PeriodFilterState,
 } from './types/attendance';
 import { UserAccount, ScrumSprint } from './types/auth';
+import { apiFetch } from './utils/api';
 import {
   getStoredCurrentUser,
   saveStoredCurrentUser,
@@ -57,6 +58,7 @@ import { ExecutiveAttendanceTrendChart } from './components/ExecutiveAttendanceT
 import { ExecutivePunctualityHeatmap } from './components/ExecutivePunctualityHeatmap';
 import { AbsenceJustificationModal } from './components/AbsenceJustificationModal';
 import { NalysExportModal } from './components/NalysExportModal';
+import { ChangePasswordModal } from './components/ChangePasswordModal';
 import { GlobalPeriodFilter } from './components/GlobalPeriodFilter';
 import { QuickFlowCenter } from './components/QuickFlowCenter';
 import {
@@ -190,6 +192,8 @@ export default function App() {
     anchorDate: '',
   });
 
+  const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+
   const [notification, setNotification] = useState<{
     text: string;
     type: 'success' | 'error' | 'info';
@@ -218,9 +222,15 @@ export default function App() {
     });
   };
 
-  const handleLogout = () => {
+  const handleLogout = async () => {
+    try {
+      await apiFetch('/auth/logout', { method: 'POST' });
+    } catch {
+      // Ignore network errors on logout
+    }
     saveStoredCurrentUser(null);
     setCurrentUser(null);
+    setActiveTab('dashboard');
     setNotification(null);
   };
 
@@ -578,6 +588,7 @@ export default function App() {
       <Navbar
         currentUser={currentUser}
         onLogout={handleLogout}
+        onOpenChangePassword={() => setIsChangePasswordOpen(true)}
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
         onExportExcel={handleExportExcel}
@@ -1239,6 +1250,13 @@ export default function App() {
             ? 'Historico_Completo'
             : `${periodFilter.startDate}_al_${periodFilter.endDate}`
         }
+      />
+
+      {/* Change Password Modal */}
+      <ChangePasswordModal
+        isOpen={isChangePasswordOpen}
+        onClose={() => setIsChangePasswordOpen(false)}
+        userEmail={currentUser?.email}
       />
     </div>
   );

@@ -27,51 +27,44 @@ export function sanitizeUser(user: UserAccount): UserAccount {
  */
 export const DEMO_ACCOUNTS: UserAccount[] = [
   {
-    id: 'usr_po_1',
-    name: 'Ing. Carlos Mendoza',
-    email: 'carlos.mendoza@empresa.com',
+    id: 'usr_luis_martinez',
+    name: 'Ing. Luis Martinez',
+    email: 'lmartinez@opeconca.net',
     role: 'PRODUCT_OWNER',
     roleTitle: 'Product Owner / Gerente General',
     department: 'Dirección General',
     site: 'Oficina Opeconca',
+    linkedEmployeeName: 'LUIS MARTINEZ',
   },
   {
-    id: 'usr_sm_1',
-    name: 'Lic. Mariana Rivas',
-    email: 'mariana.rivas@empresa.com',
+    id: 'usr_nieves_araque',
+    name: 'Nieves Araque',
+    email: 'naraque@grupoopeconca.com',
+    role: 'PRODUCT_OWNER',
+    roleTitle: 'Product Owner / Recursos Humanos',
+    department: 'Recursos Humanos',
+    site: 'Oficina Opeconca',
+    linkedEmployeeName: 'NIEVES ARAQUE',
+  },
+  {
+    id: 'usr_asistente_rrhh',
+    name: 'Asistente RRHH',
+    email: 'arrhh@opeconca.net',
     role: 'SCRUM_MASTER',
-    roleTitle: 'Scrum Master / Jefe RRHH & Operaciones',
-    department: 'Recursos Humanos y Auditoría',
+    roleTitle: 'Scrum Master / Asistente de RRHH',
+    department: 'Recursos Humanos',
     site: 'Oficina Opeconca',
+    linkedEmployeeName: 'ASISTENTE RRHH',
   },
   {
-    id: 'usr_dev_1',
-    name: 'José Morales',
-    email: 'jose.morales@empresa.com',
-    role: 'DEVELOPMENT_TEAM',
-    roleTitle: 'Dev Team Member / Especialista de Planta',
-    department: 'Mantenimiento & Producción',
-    site: 'Nalys',
-    linkedEmployeeName: 'JOSE MORALES',
-  },
-  {
-    id: 'usr_dev_2',
-    name: 'María Fernández',
-    email: 'maria.fernandez@empresa.com',
-    role: 'DEVELOPMENT_TEAM',
-    roleTitle: 'Dev Team Member / Analista Técnico',
-    department: 'Operaciones',
-    site: 'Oficina Opeconca',
-    linkedEmployeeName: 'MARIA FERNANDEZ',
-  },
-  {
-    id: 'usr_stk_1',
-    name: 'Dr. Roberto Salas',
-    email: 'roberto.salas@auditoria.com',
+    id: 'usr_t_corona',
+    name: 'T. Corona',
+    email: 'tcorona@opeconca.net',
     role: 'STAKEHOLDER',
-    roleTitle: 'Stakeholder / Auditor Externo',
-    department: 'Comité de Control y Finanzas',
-    site: 'UNEFA',
+    roleTitle: 'Stakeholder / Asistente Administrativo',
+    department: 'Administración',
+    site: 'Oficina Opeconca',
+    linkedEmployeeName: 'T CORONA',
   },
 ];
 
@@ -175,6 +168,27 @@ export async function verifyCurrentSession(): Promise<{
         : 'La sesión de usuario no es válida o ha caducado.';
 
     return { valid: false, user: null, error: errorMessage };
+  }
+}
+
+/**
+ * Change current logged-in user's password via /auth/change-password endpoint.
+ */
+export async function changePasswordUser(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const data = await apiFetch<{ message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    return { success: true, message: data.message };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { success: false, error: err.message };
+    }
+    return { success: false, error: 'Error de conexión con el servidor.' };
   }
 }
 

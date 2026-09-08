@@ -6,6 +6,7 @@ import {
   getUserByEmail,
   getUserById,
   addUser,
+  updateUserPassword,
   sanitizeUser,
   hashPassword,
   verifyPassword,
@@ -81,8 +82,12 @@ router.post('/register', authLimiter, (req: Request, res: Response) => {
       return;
     }
 
-    if (!email.includes('@') || !email.includes('.')) {
-      res.status(400).json({ error: 'Correo electrónico no válido.' });
+    // Mandatory domain validation: must end with @opeconca.net or @grupoopeconca.com
+    const normalizedEmail = String(email).trim().toLowerCase();
+    if (!normalizedEmail.endsWith('@opeconca.net') && !normalizedEmail.endsWith('@grupoopeconca.com')) {
+      res.status(400).json({
+        error: 'Acceso denegado: El registro está restringido exclusivamente a correos corporativos del dominio @opeconca.net o @grupoopeconca.com.',
+      });
       return;
     }
 
@@ -160,6 +165,14 @@ router.post('/login', authLimiter, (req: Request, res: Response) => {
       return;
     }
 
+    const normalizedEmail = String(email).trim().toLowerCase();
+    if (!normalizedEmail.endsWith('@opeconca.net') && !normalizedEmail.endsWith('@grupoopeconca.com')) {
+      res.status(400).json({
+        error: 'Acceso restringido: Solo se permiten inicios de sesión con cuentas del dominio corporativo @opeconca.net o @grupoopeconca.com.',
+      });
+      return;
+    }
+
     const user = getUserByEmail(email);
     if (!user) {
       res.status(401).json({ error: 'No existe una cuenta registrada con este correo electrónico.' });
@@ -199,6 +212,50 @@ router.get('/me', authMiddleware, (req: Request, res: Response) => {
   } catch (err) {
     console.error('[auth/me] Error:', err);
     res.status(500).json({ error: 'Error interno del servidor.' });
+  }
+});
+
+// ---------------------------------------------------------------------------
+// POST /auth/change-password — Protected: Updates user password
+// ---------------------------------------------------------------------------
+router.post('/change-password', authMiddleware, (req: Request, res: Response) => {
+  try {
+    const payload = req.user!;
+    const { currentPassword, newPassword } = req.body;
+
+    if (!currentPassword || !newPassword) {
+      res.status(400).json({ error: 'La contraseña actual y la nueva contraseña son obligatorias.' });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres.' });
+      return;
+    }
+
+    const user = getUserById(payload.sub);
+    if (!user) {
+      res.status(404).json({ error: 'Usuario no encontrado.' });
+      return;
+    }
+
+    if (!verifyPassword(currentPassword, user.passwordHash)) {
+      res.status(401).json({ error: 'La contraseña actual es incorrecta.' });
+      return;
+    }
+
+    const newHash = hashPassword(newPassword);
+    const updated = updateUserPassword(user.id, newHash);
+
+    if (!updated) {
+      res.status(500).json({ error: 'No se pudo actualizar la contraseña.' });
+      return;
+    }
+
+    res.json({ message: 'Contraseña actualizada exitosamente.' });
+  } catch (err) {
+    console.error('[auth/change-password] Error:', err);
+    res.status(500).json({ error: 'Error interno del servidor al actualizar la contraseña.' });
   }
 });
 

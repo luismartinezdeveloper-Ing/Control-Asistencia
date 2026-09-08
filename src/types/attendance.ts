@@ -30,6 +30,11 @@ export interface AttendanceRecord {
   justificationReason?: string; // e.g. "Reposo Médico", "Permiso Personal", "Comisión de Servicio"
   justificationDocument?: string; // Document ID / receipt
   justifiedAt?: string;
+  // HR Payroll Breakdown Fields
+  diurnalOvertimeHours?: number; // Horas extras en jornada diurna (07:00 AM - 07:00 PM)
+  nocturnalOvertimeHours?: number; // Horas extras en jornada nocturna (07:00 PM - 07:00 AM)
+  holidayWorkedHours?: number; // Horas trabajadas en días feriados o fines de semana
+  isHoliday?: boolean;
 }
 
 export interface EmployeeSummary {
@@ -47,6 +52,11 @@ export interface EmployeeSummary {
   varianceHours: number; // positive = superavit, negative = deficit
   complianceRate: number; // percentage (0 - 100+)
   status: 'OPTIMO' | 'EN_DEFICIT' | 'CON_OBSERVACION';
+  // HR Payroll Breakdown Fields
+  diurnalOvertimeHours: number;
+  nocturnalOvertimeHours: number;
+  holidayWorkedHours: number;
+  unjustifiedAbsenceCount: number;
 }
 
 export interface SiteSummary {

@@ -105,9 +105,14 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     setErrorMsg(null);
     setSuccessMsg(null);
 
-    const cleanEmail = loginEmail.trim();
+    const cleanEmail = loginEmail.trim().toLowerCase();
     if (!cleanEmail) {
       setErrorMsg('Por favor ingresa tu correo electrónico corporativo.');
+      return;
+    }
+
+    if (!cleanEmail.endsWith('@opeconca.net') && !cleanEmail.endsWith('@grupoopeconca.com')) {
+      setErrorMsg('Acceso restringido: El correo debe pertenecer exclusivamente al dominio corporativo @opeconca.net o @grupoopeconca.com.');
       return;
     }
 
@@ -152,8 +157,8 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       return;
     }
 
-    if (!cleanEmail || !cleanEmail.includes('@') || !cleanEmail.includes('.')) {
-      setErrorMsg('Ingresa un correo electrónico corporativo válido.');
+    if (!cleanEmail || (!cleanEmail.endsWith('@opeconca.net') && !cleanEmail.endsWith('@grupoopeconca.com'))) {
+      setErrorMsg('Acceso denegado: El registro está restringido exclusivamente a correos corporativos del dominio @opeconca.net o @grupoopeconca.com.');
       return;
     }
 
@@ -358,10 +363,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                     required
                     value={loginEmail}
                     onChange={(e) => setLoginEmail(e.target.value)}
-                    placeholder="ej. carlos.mendoza@empresa.com"
+                    placeholder="ej. lmartinez@opeconca.net"
                     className="block w-full pl-9 pr-3 py-2.5 bg-slate-950 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 text-xs sm:text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                   />
                 </div>
+                <p className="text-[10px] text-slate-400 mt-1">Dominio obligatorio: <span className="font-semibold text-blue-400">@opeconca.net</span></p>
               </div>
 
               <div>
@@ -516,10 +522,11 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                       required
                       value={regEmail}
                       onChange={(e) => setRegEmail(e.target.value)}
-                      placeholder="carlos.mendoza@empresa.com"
+                      placeholder="lmartinez@opeconca.net"
                       className="block w-full pl-9 pr-3 py-2 bg-slate-950 border border-slate-700/80 rounded-xl text-white placeholder-slate-500 text-xs focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-transparent transition-all"
                     />
                   </div>
+                  <p className="text-[10px] text-slate-400 mt-1">Dominio obligatorio: <span className="font-semibold text-blue-400">@opeconca.net</span></p>
                 </div>
               </div>
 

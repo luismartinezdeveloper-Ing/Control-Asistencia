@@ -14,55 +14,48 @@ const USERS_FILE = path.join(DATA_DIR, 'users.json');
 const DEMO_PASSWORD = 'Scrum2026!*';
 
 /**
- * Demo accounts seeded on first startup — mirrors frontend DEMO_ACCOUNTS.
+ * Official default account seeded on first startup — Ing. Luis Martinez.
  */
 const DEMO_ACCOUNTS_SEED: Omit<ServerUserAccount, 'passwordHash'>[] = [
   {
-    id: 'usr_po_1',
-    name: 'Ing. Carlos Mendoza',
-    email: 'carlos.mendoza@empresa.com',
+    id: 'usr_luis_martinez',
+    name: 'Ing. Luis Martinez',
+    email: 'lmartinez@opeconca.net',
     role: 'PRODUCT_OWNER',
     roleTitle: 'Product Owner / Gerente General',
     department: 'Dirección General',
     site: 'Oficina Opeconca',
+    linkedEmployeeName: 'LUIS MARTINEZ',
   },
   {
-    id: 'usr_sm_1',
-    name: 'Lic. Mariana Rivas',
-    email: 'mariana.rivas@empresa.com',
+    id: 'usr_nieves_araque',
+    name: 'Nieves Araque',
+    email: 'naraque@grupoopeconca.com',
+    role: 'PRODUCT_OWNER',
+    roleTitle: 'Product Owner / Recursos Humanos',
+    department: 'Recursos Humanos',
+    site: 'Oficina Opeconca',
+    linkedEmployeeName: 'NIEVES ARAQUE',
+  },
+  {
+    id: 'usr_asistente_rrhh',
+    name: 'Asistente RRHH',
+    email: 'arrhh@opeconca.net',
     role: 'SCRUM_MASTER',
-    roleTitle: 'Scrum Master / Jefe RRHH & Operaciones',
-    department: 'Recursos Humanos y Auditoría',
+    roleTitle: 'Scrum Master / Asistente de RRHH',
+    department: 'Recursos Humanos',
     site: 'Oficina Opeconca',
+    linkedEmployeeName: 'ASISTENTE RRHH',
   },
   {
-    id: 'usr_dev_1',
-    name: 'José Morales',
-    email: 'jose.morales@empresa.com',
-    role: 'DEVELOPMENT_TEAM',
-    roleTitle: 'Dev Team Member / Especialista de Planta',
-    department: 'Mantenimiento & Producción',
-    site: 'Nalys',
-    linkedEmployeeName: 'JOSE MORALES',
-  },
-  {
-    id: 'usr_dev_2',
-    name: 'María Fernández',
-    email: 'maria.fernandez@empresa.com',
-    role: 'DEVELOPMENT_TEAM',
-    roleTitle: 'Dev Team Member / Analista Técnico',
-    department: 'Operaciones',
-    site: 'Oficina Opeconca',
-    linkedEmployeeName: 'MARIA FERNANDEZ',
-  },
-  {
-    id: 'usr_stk_1',
-    name: 'Dr. Roberto Salas',
-    email: 'roberto.salas@auditoria.com',
+    id: 'usr_t_corona',
+    name: 'T. Corona',
+    email: 'tcorona@opeconca.net',
     role: 'STAKEHOLDER',
-    roleTitle: 'Stakeholder / Auditor Externo',
-    department: 'Comité de Control y Finanzas',
-    site: 'UNEFA',
+    roleTitle: 'Stakeholder / Asistente Administrativo',
+    department: 'Administración',
+    site: 'Oficina Opeconca',
+    linkedEmployeeName: 'T CORONA',
   },
 ];
 
@@ -101,13 +94,10 @@ function writeUsersFile(users: ServerUserAccount[]): void {
 // ---------------------------------------------------------------------------
 
 /**
- * Seeds demo accounts into the user store if the file is empty or missing.
+ * Seeds demo accounts into the user store if missing.
  * Each demo account gets the same bcrypt-hashed password: Scrum2026!*
  */
-export function seedDemoAccounts(): void {
-  const existing = readUsersFile();
-  if (existing.length > 0) return; // Already seeded
-
+export function seedDemoAccounts(): ServerUserAccount[] {
   const demoHash = bcrypt.hashSync(DEMO_PASSWORD, SALT_ROUNDS);
 
   const users: ServerUserAccount[] = DEMO_ACCOUNTS_SEED.map((acct) => ({
@@ -116,21 +106,44 @@ export function seedDemoAccounts(): void {
   }));
 
   writeUsersFile(users);
-  console.log(`[userStore] Seeded ${users.length} demo accounts.`);
+  console.log(`[userStore] Seeded ${users.length} official user accounts.`);
+  return users;
+}
+
+function getOrSeedUsers(): ServerUserAccount[] {
+  let users = readUsersFile();
+  if (users.length === 0) {
+    users = seedDemoAccounts();
+  } else {
+    // Ensure all seed accounts exist in users.json
+    let modified = false;
+    const demoHash = bcrypt.hashSync(DEMO_PASSWORD, SALT_ROUNDS);
+    DEMO_ACCOUNTS_SEED.forEach((seedAcc) => {
+      const exists = users.some((u) => u.email.toLowerCase() === seedAcc.email.toLowerCase());
+      if (!exists) {
+        users.push({ ...seedAcc, passwordHash: demoHash });
+        modified = true;
+      }
+    });
+    if (modified) {
+      writeUsersFile(users);
+    }
+  }
+  return users;
 }
 
 /**
  * Returns all stored users (with passwordHash — for internal use only).
  */
 export function getUsers(): ServerUserAccount[] {
-  return readUsersFile();
+  return getOrSeedUsers();
 }
 
 /**
  * Find a user by email (case-insensitive).
  */
 export function getUserByEmail(email: string): ServerUserAccount | undefined {
-  const users = readUsersFile();
+  const users = getOrSeedUsers();
   return users.find((u) => u.email.toLowerCase() === email.toLowerCase());
 }
 
@@ -138,7 +151,7 @@ export function getUserByEmail(email: string): ServerUserAccount | undefined {
  * Find a user by ID.
  */
 export function getUserById(id: string): ServerUserAccount | undefined {
-  const users = readUsersFile();
+  const users = getOrSeedUsers();
   return users.find((u) => u.id === id);
 }
 
@@ -147,7 +160,7 @@ export function getUserById(id: string): ServerUserAccount | undefined {
  * Throws if a user with the same email already exists.
  */
 export function addUser(user: ServerUserAccount): ServerUserAccount {
-  const users = readUsersFile();
+  const users = getOrSeedUsers();
   const duplicate = users.find(
     (u) => u.email.toLowerCase() === user.email.toLowerCase()
   );
@@ -157,6 +170,18 @@ export function addUser(user: ServerUserAccount): ServerUserAccount {
   users.push(user);
   writeUsersFile(users);
   return user;
+}
+
+/**
+ * Update password for a specific user ID.
+ */
+export function updateUserPassword(id: string, newPasswordHash: string): boolean {
+  const users = getOrSeedUsers();
+  const idx = users.findIndex((u) => u.id === id);
+  if (idx === -1) return false;
+  users[idx].passwordHash = newPasswordHash;
+  writeUsersFile(users);
+  return true;
 }
 
 /**

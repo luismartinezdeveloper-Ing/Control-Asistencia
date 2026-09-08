@@ -458,6 +458,51 @@ function generateUniqueId(prefix: string, name: string, date: string): string {
 }
 
 /**
+ * Extracts a complete employee name by combining separate First Name ('Nombre')
+ * and Last Name ('Apellido') columns when present, or using direct name column / candidates.
+ */
+function extractEmployeeNameFromRow(
+  row: Record<string, unknown>,
+  columnHeaders: string[],
+  firstNameCol?: string,
+  lastNameCol?: string,
+  nameCol?: string | null
+): string {
+  const fnVal = firstNameCol ? row[firstNameCol] : undefined;
+  const lnVal = lastNameCol ? row[lastNameCol] : undefined;
+
+  let employeeName = '';
+
+  if (
+    fnVal &&
+    lnVal &&
+    firstNameCol !== lastNameCol &&
+    String(fnVal).trim() !== '' &&
+    String(lnVal).trim() !== ''
+  ) {
+    employeeName = `${String(lnVal).trim()} ${String(fnVal).trim()}`.replace(/\s+/g, ' ');
+  } else {
+    const directName = (nameCol ? row[nameCol] : undefined) || findValue(row, NAME_CANDIDATES);
+    if (directName && String(directName).trim() !== '') {
+      employeeName = String(directName).trim().replace(/\s+/g, ' ');
+    } else if (fnVal && String(fnVal).trim() !== '') {
+      employeeName = String(fnVal).trim().replace(/\s+/g, ' ');
+    } else if (lnVal && String(lnVal).trim() !== '') {
+      employeeName = String(lnVal).trim().replace(/\s+/g, ' ');
+    }
+  }
+
+  if (!employeeName) {
+    const cardVal = findValue(row, CARD_ID_CANDIDATES);
+    if (cardVal && String(cardVal).trim() !== '') {
+      employeeName = `Colaborador Ficha #${String(cardVal).trim()}`;
+    }
+  }
+
+  return employeeName;
+}
+
+/**
  * Pure parsing engine that accepts an ArrayBuffer and fileName.
  * Can be executed seamlessly in Web Workers without any DOM / File dependency.
  */
@@ -678,15 +723,25 @@ export function parseExcelArrayBuffer(
       const baseYear = sheetFallbackDate ? parseInt(sheetFallbackDate.slice(0, 4), 10) : 2026;
       const baseMonth = sheetFallbackDate ? parseInt(sheetFallbackDate.slice(5, 7), 10) : 9;
 
+      const firstNameColMatrix = columnHeaders.find((c) => {
+        const k = cleanKey(c);
+        return k === 'nombre' || k === 'nombres' || k.includes('primernombre');
+      });
+
+      const lastNameColMatrix = columnHeaders.find((c) => {
+        const k = cleanKey(c);
+        return k === 'apellido' || k === 'apellidos' || k.includes('primerapellido');
+      });
+
       for (const row of sheetDataRows) {
-        let empName = nameCol && row[nameCol] ? String(row[nameCol]).trim() : '';
-        if (!empName) {
-          // Try finding any cell with a name
-          const cardVal = findValue(row, CARD_ID_CANDIDATES);
-          if (cardVal) {
-            empName = `Tarjeta/Ficha #${cardVal}`;
-          }
-        }
+        let empName = extractEmployeeNameFromRow(
+          row,
+          columnHeaders,
+          firstNameColMatrix,
+          lastNameColMatrix,
+          nameCol
+        );
+
         if (!empName) {
           totalSkippedEmptyRows++;
           continue;
@@ -813,8 +868,6 @@ export function parseExcelArrayBuffer(
 
       for (let rIdx = 0; rIdx < sheetDataRows.length; rIdx++) {
         const row = sheetDataRows[rIdx];
-        const nameVal =
-          (nameCol ? row[nameCol] : undefined) || findValue(row, NAME_CANDIDATES);
         const cardVal = findValue(row, CARD_ID_CANDIDATES);
         const timeVal = findValue(row, TIME_GENERIC_CANDIDATES);
         const dateVal = findValue(row, DATE_CANDIDATES);
@@ -822,16 +875,20 @@ export function parseExcelArrayBuffer(
         const explVal = findValue(row, ['explicacion', 'evento', 'motivo', 'dispositivo']);
         const deptVal = findValue(row, DEPT_CANDIDATES);
 
+        let employeeName = extractEmployeeNameFromRow(
+          row,
+          columnHeaders,
+          firstNameCol,
+          lastNameCol,
+          nameCol
+        );
+
         // If completely empty row
-        if (!nameVal && !cardVal && !timeVal && !dateVal) {
+        if (!employeeName && !cardVal && !timeVal && !dateVal) {
           totalSkippedEmptyRows++;
           continue;
         }
 
-        let employeeName = nameVal ? String(nameVal).trim().replace(/\s+/g, ' ') : '';
-        if (!employeeName && cardVal) {
-          employeeName = `Tarjeta #${String(cardVal).trim()}`;
-        }
         if (!employeeName) {
           employeeName = `Colaborador Fila ${rIdx + 1}`;
         }
@@ -873,10 +930,13 @@ export function parseExcelArrayBuffer(
         });
       }
 
-      // Group punches by employeeName + date
+      // Group punches by employeeName + card + date to prevent merging distinct employees
       const grouped = new Map<string, PunchEvent[]>();
       for (const punch of punches) {
-        const groupKey = `${punch.employeeName}___${punch.date}`;
+        const cardStr = punch.card ? String(punch.card).trim() : '';
+        const groupKey = cardStr
+          ? `${punch.employeeName}___${cardStr}___${punch.date}`
+          : `${punch.employeeName}___${punch.date}`;
         if (!grouped.has(groupKey)) {
           grouped.set(groupKey, []);
         }
@@ -885,7 +945,9 @@ export function parseExcelArrayBuffer(
 
       // Process each person-day group
       grouped.forEach((groupPunches, key) => {
-        const [employeeName, date] = key.split('___');
+        const parts = key.split('___');
+        const employeeName = parts[0];
+        const date = parts.length >= 3 ? parts[2] : parts[1];
         // Sort punches by time
         groupPunches.sort((a, b) => a.time.localeCompare(b.time));
 
@@ -929,21 +991,13 @@ export function parseExcelArrayBuffer(
         const siteVal = findValue(row, SITE_CANDIDATES);
 
         // Employee Name Extraction
-        let employeeName = '';
-        const fnVal = firstNameCol ? row[firstNameCol] : undefined;
-        const lnVal = lastNameCol ? row[lastNameCol] : undefined;
-
-        if (fnVal && lnVal && firstNameCol !== lastNameCol) {
-          employeeName = `${String(lnVal).trim()} ${String(fnVal).trim()}`.replace(/\s+/g, ' ');
-        } else {
-          const directName =
-            (nameCol ? row[nameCol] : undefined) || findValue(row, NAME_CANDIDATES);
-          if (directName) {
-            employeeName = String(directName).trim().replace(/\s+/g, ' ');
-          } else if (cardVal) {
-            employeeName = `Colaborador Ficha #${String(cardVal).trim()}`;
-          }
-        }
+        let employeeName = extractEmployeeNameFromRow(
+          row,
+          columnHeaders,
+          firstNameCol,
+          lastNameCol,
+          nameCol
+        );
 
         // Punch Times Extraction
         const earlyVal = findValue(row, TIME_EARLY_CANDIDATES);

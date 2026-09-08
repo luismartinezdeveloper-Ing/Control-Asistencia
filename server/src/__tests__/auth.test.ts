@@ -39,13 +39,28 @@ describe('Auth API', () => {
   // POST /auth/register
   // -----------------------------------------------------------------------
   describe('POST /auth/register', () => {
-    it('should create a new user and return 201 with Set-Cookie', async () => {
+    it('should reject emails that do not belong to @opeconca.net domain', async () => {
+      const res = await request(app)
+        .post('/auth/register')
+        .set('x-skip-rate-limit', 'true')
+        .send({
+          name: 'External User',
+          email: 'user@gmail.com',
+          password: 'TestPass123!',
+          role: 'DEVELOPMENT_TEAM',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('@opeconca.net');
+    });
+
+    it('should create a new user with @opeconca.net and return 201 with Set-Cookie', async () => {
       const res = await request(app)
         .post('/auth/register')
         .set('x-skip-rate-limit', 'true')
         .send({
           name: 'Test User',
-          email: 'test@example.com',
+          email: 'test@opeconca.net',
           password: 'TestPass123!',
           role: 'DEVELOPMENT_TEAM',
           department: 'TI',
@@ -55,7 +70,7 @@ describe('Auth API', () => {
       expect(res.status).toBe(201);
       expect(res.body.user).toBeDefined();
       expect(res.body.user.name).toBe('Test User');
-      expect(res.body.user.email).toBe('test@example.com');
+      expect(res.body.user.email).toBe('test@opeconca.net');
       expect(res.body.user.role).toBe('DEVELOPMENT_TEAM');
 
       // Should NOT contain passwordHash
@@ -77,7 +92,7 @@ describe('Auth API', () => {
         .set('x-skip-rate-limit', 'true')
         .send({
           name: 'Duplicate',
-          email: 'test@example.com',
+          email: 'test@opeconca.net',
           password: 'TestPass123!',
         });
 
@@ -100,7 +115,7 @@ describe('Auth API', () => {
         .set('x-skip-rate-limit', 'true')
         .send({
           name: 'Wannabe Admin',
-          email: 'admin@example.com',
+          email: 'admin@opeconca.net',
           password: 'TestPass123!',
           role: 'PRODUCT_OWNER',
         });
@@ -114,7 +129,7 @@ describe('Auth API', () => {
         .set('x-skip-rate-limit', 'true')
         .send({
           name: 'Real Admin',
-          email: 'realadmin@example.com',
+          email: 'realadmin@opeconca.net',
           password: 'TestPass123!',
           role: 'PRODUCT_OWNER',
           authCode: 'ADMIN2026',
@@ -127,7 +142,7 @@ describe('Auth API', () => {
     it('should store passwords as bcrypt hashes (not plain text)', async () => {
       // Read the users file directly to verify
       const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
-      const testUser = users.find((u: any) => u.email === 'test@example.com');
+      const testUser = users.find((u: any) => u.email === 'test@opeconca.net');
 
       expect(testUser).toBeDefined();
       expect(testUser.passwordHash).toBeDefined();
@@ -142,18 +157,31 @@ describe('Auth API', () => {
   // POST /auth/login
   // -----------------------------------------------------------------------
   describe('POST /auth/login', () => {
+    it('should reject login for emails that do not belong to @opeconca.net', async () => {
+      const res = await request(app)
+        .post('/auth/login')
+        .set('x-skip-rate-limit', 'true')
+        .send({
+          email: 'hacker@external.com',
+          password: 'SomePassword123!',
+        });
+
+      expect(res.status).toBe(400);
+      expect(res.body.error).toContain('@opeconca.net');
+    });
+
     it('should login with valid credentials and return 200 with cookie', async () => {
       const res = await request(app)
         .post('/auth/login')
         .set('x-skip-rate-limit', 'true')
         .send({
-          email: 'test@example.com',
+          email: 'test@opeconca.net',
           password: 'TestPass123!',
         });
 
       expect(res.status).toBe(200);
       expect(res.body.user).toBeDefined();
-      expect(res.body.user.email).toBe('test@example.com');
+      expect(res.body.user.email).toBe('test@opeconca.net');
       expect(res.body.user.passwordHash).toBeUndefined();
 
       // Should set cookie
@@ -161,17 +189,18 @@ describe('Auth API', () => {
       expect(cookies).toBeDefined();
     });
 
-    it('should login with demo account credentials', async () => {
+    it('should login with Ing. Luis Martinez seed account credentials', async () => {
       const res = await request(app)
         .post('/auth/login')
         .set('x-skip-rate-limit', 'true')
         .send({
-          email: 'carlos.mendoza@empresa.com',
+          email: 'lmartinez@opeconca.net',
           password: 'Scrum2026!*',
         });
 
       expect(res.status).toBe(200);
-      expect(res.body.user.name).toBe('Ing. Carlos Mendoza');
+      expect(res.body.user.name).toBe('Ing. Luis Martinez');
+      expect(res.body.user.email).toBe('lmartinez@opeconca.net');
       expect(res.body.user.role).toBe('PRODUCT_OWNER');
     });
 
@@ -180,7 +209,7 @@ describe('Auth API', () => {
         .post('/auth/login')
         .set('x-skip-rate-limit', 'true')
         .send({
-          email: 'test@example.com',
+          email: 'test@opeconca.net',
           password: 'WrongPassword',
         });
 
@@ -188,12 +217,12 @@ describe('Auth API', () => {
       expect(res.body.error).toContain('Contraseña incorrecta');
     });
 
-    it('should return 401 for non-existent email', async () => {
+    it('should return 401 for non-existent @opeconca.net email', async () => {
       const res = await request(app)
         .post('/auth/login')
         .set('x-skip-rate-limit', 'true')
         .send({
-          email: 'nonexistent@example.com',
+          email: 'nonexistent@opeconca.net',
           password: 'SomePass',
         });
 
@@ -218,7 +247,7 @@ describe('Auth API', () => {
         .post('/auth/login')
         .set('x-skip-rate-limit', 'true')
         .send({
-          email: 'test@example.com',
+          email: 'test@opeconca.net',
           password: 'TestPass123!',
         });
 
@@ -233,7 +262,7 @@ describe('Auth API', () => {
 
       expect(meRes.status).toBe(200);
       expect(meRes.body.user).toBeDefined();
-      expect(meRes.body.user.email).toBe('test@example.com');
+      expect(meRes.body.user.email).toBe('test@opeconca.net');
       expect(meRes.body.user.passwordHash).toBeUndefined();
     });
 
@@ -251,7 +280,7 @@ describe('Auth API', () => {
         .post('/auth/login')
         .set('x-skip-rate-limit', 'true')
         .send({
-          email: 'test@example.com',
+          email: 'test@opeconca.net',
           password: 'TestPass123!',
         });
 
@@ -266,7 +295,7 @@ describe('Auth API', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(meRes.status).toBe(200);
-      expect(meRes.body.user.email).toBe('test@example.com');
+      expect(meRes.body.user.email).toBe('test@opeconca.net');
     });
   });
 
