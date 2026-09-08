@@ -135,7 +135,8 @@ export default function App() {
 
   // Hydrate records and files from localStorage if present
   const [records, setRecords] = useState<AttendanceRecord[]>(() => {
-    const stored = loadStoredAttendance();
+    const user = getStoredCurrentUser();
+    const stored = loadStoredAttendance(user?.id);
     if (stored && stored.records && stored.records.length > 0) {
       return repairRecordsSite(stored.records);
     }
@@ -143,7 +144,8 @@ export default function App() {
   });
 
   const [loadedFiles, setLoadedFiles] = useState<LoadedFileMeta[]>(() => {
-    const stored = loadStoredAttendance();
+    const user = getStoredCurrentUser();
+    const stored = loadStoredAttendance(user?.id);
     if (stored && stored.loadedFiles && stored.loadedFiles.length > 0) {
       return stored.loadedFiles;
     }
@@ -173,7 +175,8 @@ export default function App() {
     text: string;
     type: 'success' | 'error' | 'info';
   } | null>(() => {
-    const stored = loadStoredAttendance();
+    const user = getStoredCurrentUser();
+    const stored = loadStoredAttendance(user?.id);
     if (stored && stored.records && stored.records.length > 0) {
       return {
         text: `Se han cargado ${stored.records.length} registros guardados en almacenamiento local.`,
@@ -191,6 +194,29 @@ export default function App() {
     setCurrentUser(user);
     const target = getDefaultTabForRole(user);
     setActiveTab(target);
+
+    // Load user-scoped data synchronously from localStorage
+    const userStored = loadStoredAttendance(user.id);
+    if (userStored && userStored.records && userStored.records.length > 0) {
+      setRecords(repairRecordsSite(userStored.records));
+      setLoadedFiles(userStored.loadedFiles || []);
+    } else {
+      setRecords([]);
+      setLoadedFiles([]);
+    }
+
+    // Async IndexedDB hydration for user
+    loadAndMigrateAttendance(user.id)
+      .then((migrated) => {
+        if (migrated && migrated.records && migrated.records.length > 0) {
+          setRecords(repairRecordsSite(migrated.records));
+          if (migrated.loadedFiles && migrated.loadedFiles.length > 0) {
+            setLoadedFiles(migrated.loadedFiles);
+          }
+        }
+      })
+      .catch((err) => console.warn('User IndexedDB load notice:', err));
+
     setNotification({
       text: `Bienvenido(a), ${user.name}. Acceso verificado como ${user.roleTitle}.`,
       type: 'success',
@@ -205,6 +231,8 @@ export default function App() {
     }
     saveStoredCurrentUser(null);
     setCurrentUser(null);
+    setRecords([]);
+    setLoadedFiles([]);
     setActiveTab('dashboard');
     setNotification(null);
   };
@@ -244,22 +272,27 @@ export default function App() {
   // Automatically verify JWT session and hydrate/migrate storage from IndexedDB on startup
   useEffect(() => {
     async function initApp() {
-      if (currentUser) {
+      const initialUser = getStoredCurrentUser();
+      if (initialUser) {
         const session = await verifyCurrentSession();
         if (!session.valid) {
           setCurrentUser(null);
+          setRecords([]);
+          setLoadedFiles([]);
           setNotification({
             text: session.error || 'Tu sesión ha expirado o es inválida. Por favor inicia sesión nuevamente.',
             type: 'error',
           });
+          return;
         }
       }
 
-      // Check for persisted data in IndexedDB
+      // Check for persisted data in IndexedDB for logged-in user
       try {
-        const migrated = await loadAndMigrateAttendance();
+        const userId = initialUser?.id;
+        const migrated = await loadAndMigrateAttendance(userId);
         if (migrated && migrated.records && migrated.records.length > 0) {
-          setRecords(migrated.records);
+          setRecords(repairRecordsSite(migrated.records));
           if (migrated.loadedFiles && migrated.loadedFiles.length > 0) {
             setLoadedFiles(migrated.loadedFiles);
           }
@@ -280,7 +313,8 @@ export default function App() {
 
   // Automatically persist records to storage whenever records or loadedFiles change with quota alert and IndexedDB sync
   useEffect(() => {
-    const saveResult = saveStoredAttendanceDetailed(records, loadedFiles);
+    if (!currentUser) return;
+    const saveResult = saveStoredAttendanceDetailed(records, loadedFiles, currentUser.id);
     if (!saveResult.success && saveResult.error === 'QUOTA_EXCEEDED') {
       setNotification({
         text: '¡Advertencia de Almacenamiento! Límite de cuota del navegador alcanzado. Exporta tus datos para no perder registros.',
@@ -288,10 +322,10 @@ export default function App() {
       });
     }
     // High-capacity transactional background backup
-    persistToIndexedDb(records, loadedFiles).catch((err) => {
+    persistToIndexedDb(records, loadedFiles, currentUser.id).catch((err) => {
       console.warn('IndexedDB persistence warning:', err);
     });
-  }, [records, loadedFiles]);
+  }, [records, loadedFiles, currentUser]);
 
   // Auto-dismiss notification after 7 seconds
   useEffect(() => {
@@ -546,7 +580,7 @@ export default function App() {
   const handleClearData = () => {
     setRecords([]);
     setLoadedFiles([]);
-    clearStoredAttendance();
+    clearStoredAttendance(currentUser?.id);
     setNotification({
       text: 'Se han limpiado todos los registros y la memoria local. Ahora puedes cargar tus archivos reales.',
       type: 'info',

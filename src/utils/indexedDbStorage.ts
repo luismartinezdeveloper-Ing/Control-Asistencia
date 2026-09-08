@@ -47,7 +47,8 @@ function openDatabase(): Promise<IDBDatabase> {
  */
 export async function saveIndexedDbAttendance(
   records: AttendanceRecord[],
-  loadedFiles: LoadedFileMeta[]
+  loadedFiles: LoadedFileMeta[],
+  userId?: string
 ): Promise<boolean> {
   try {
     const db = await openDatabase();
@@ -62,17 +63,19 @@ export async function saveIndexedDbAttendance(
       fileStore.clear();
 
       for (const rec of records) {
-        recordStore.put(rec);
+        recordStore.put(userId ? { ...rec, _userId: userId } : rec);
       }
 
       for (const file of loadedFiles) {
         fileStore.put({
           ...file,
+          _userId: userId,
           loadedAt: file.loadedAt instanceof Date ? file.loadedAt.toISOString() : file.loadedAt,
         });
       }
 
-      metaStore.put({ key: 'last_saved', value: new Date().toISOString() });
+      const metaKey = userId ? `last_saved_${userId}` : 'last_saved';
+      metaStore.put({ key: metaKey, value: new Date().toISOString() });
 
       tx.oncomplete = () => {
         db.close();
@@ -93,7 +96,7 @@ export async function saveIndexedDbAttendance(
 /**
  * Loads records and file metadata from IndexedDB
  */
-export async function loadIndexedDbAttendance(): Promise<{
+export async function loadIndexedDbAttendance(userId?: string): Promise<{
   records: AttendanceRecord[];
   loadedFiles: LoadedFileMeta[];
   lastSaved: string | null;
@@ -108,12 +111,20 @@ export async function loadIndexedDbAttendance(): Promise<{
 
       const recordsReq = recordStore.getAll();
       const filesReq = fileStore.getAll();
-      const metaReq = metaStore.get('last_saved');
+      const metaKey = userId ? `last_saved_${userId}` : 'last_saved';
+      const metaReq = metaStore.get(metaKey);
 
       tx.oncomplete = () => {
-        const records: AttendanceRecord[] = recordsReq.result || [];
-        const rawFiles = filesReq.result || [];
-        const loadedFiles: LoadedFileMeta[] = rawFiles.map((f: Record<string, unknown>) => ({
+        let allRecords: (AttendanceRecord & { _userId?: string })[] = recordsReq.result || [];
+        let rawFiles: (Record<string, unknown> & { _userId?: string })[] = filesReq.result || [];
+
+        if (userId) {
+          allRecords = allRecords.filter((r) => r._userId === userId || !r._userId);
+          rawFiles = rawFiles.filter((f) => f._userId === userId || !f._userId);
+        }
+
+        const records: AttendanceRecord[] = allRecords.map(({ _userId, ...rest }) => rest as AttendanceRecord);
+        const loadedFiles: LoadedFileMeta[] = rawFiles.map(({ _userId, ...f }) => ({
           ...f,
           loadedAt: f.loadedAt ? new Date(f.loadedAt as string) : new Date(),
         })) as LoadedFileMeta[];
@@ -142,14 +153,20 @@ export async function loadIndexedDbAttendance(): Promise<{
 /**
  * Clears all IndexedDB stores
  */
-export async function clearIndexedDbAttendance(): Promise<boolean> {
+export async function clearIndexedDbAttendance(userId?: string): Promise<boolean> {
   try {
     const db = await openDatabase();
     return new Promise((resolve, reject) => {
       const tx = db.transaction([STORE_RECORDS, STORE_FILES, STORE_META], 'readwrite');
-      tx.objectStore(STORE_RECORDS).clear();
-      tx.objectStore(STORE_FILES).clear();
-      tx.objectStore(STORE_META).clear();
+      
+      if (!userId) {
+        tx.objectStore(STORE_RECORDS).clear();
+        tx.objectStore(STORE_FILES).clear();
+        tx.objectStore(STORE_META).clear();
+      } else {
+        const metaKey = `last_saved_${userId}`;
+        tx.objectStore(STORE_META).delete(metaKey);
+      }
 
       tx.oncomplete = () => {
         db.close();

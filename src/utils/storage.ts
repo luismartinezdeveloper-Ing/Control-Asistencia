@@ -9,6 +9,15 @@ const STORAGE_KEY_RECORDS = 'assistpro_attendance_records_v1';
 const STORAGE_KEY_FILES = 'assistpro_attendance_files_v1';
 const STORAGE_KEY_TIMESTAMP = 'assistpro_attendance_last_saved';
 
+function getKeys(userId?: string) {
+  const suffix = userId ? `_${userId}` : '';
+  return {
+    recordsKey: `${STORAGE_KEY_RECORDS}${suffix}`,
+    filesKey: `${STORAGE_KEY_FILES}${suffix}`,
+    timestampKey: `${STORAGE_KEY_TIMESTAMP}${suffix}`,
+  };
+}
+
 /**
  * Checks if localStorage is available and functioning
  */
@@ -34,9 +43,10 @@ export interface StorageSaveResult {
  */
 export function saveStoredAttendance(
   records: AttendanceRecord[],
-  loadedFiles: LoadedFileMeta[]
+  loadedFiles: LoadedFileMeta[],
+  userId?: string
 ): boolean {
-  const res = saveStoredAttendanceDetailed(records, loadedFiles);
+  const res = saveStoredAttendanceDetailed(records, loadedFiles, userId);
   return res.success;
 }
 
@@ -45,7 +55,8 @@ export function saveStoredAttendance(
  */
 export function saveStoredAttendanceDetailed(
   records: AttendanceRecord[],
-  loadedFiles: LoadedFileMeta[]
+  loadedFiles: LoadedFileMeta[],
+  userId?: string
 ): StorageSaveResult {
   if (!isStorageAvailable()) {
     return {
@@ -56,6 +67,7 @@ export function saveStoredAttendanceDetailed(
   }
 
   try {
+    const { recordsKey, filesKey, timestampKey } = getKeys(userId);
     const serializedRecords = JSON.stringify(records);
     const filesToStore = loadedFiles.map((f) => ({
       ...f,
@@ -63,9 +75,9 @@ export function saveStoredAttendanceDetailed(
     }));
     const serializedFiles = JSON.stringify(filesToStore);
 
-    window.localStorage.setItem(STORAGE_KEY_RECORDS, serializedRecords);
-    window.localStorage.setItem(STORAGE_KEY_FILES, serializedFiles);
-    window.localStorage.setItem(STORAGE_KEY_TIMESTAMP, new Date().toISOString());
+    window.localStorage.setItem(recordsKey, serializedRecords);
+    window.localStorage.setItem(filesKey, serializedFiles);
+    window.localStorage.setItem(timestampKey, new Date().toISOString());
 
     return { success: true };
   } catch (err: unknown) {
@@ -98,16 +110,17 @@ export function saveStoredAttendanceDetailed(
 /**
  * Loads stored attendance records and file metadata from localStorage
  */
-export function loadStoredAttendance(): {
+export function loadStoredAttendance(userId?: string): {
   records: AttendanceRecord[];
   loadedFiles: LoadedFileMeta[];
   lastSaved: string | null;
 } | null {
   if (!isStorageAvailable()) return null;
   try {
-    const rawRecords = window.localStorage.getItem(STORAGE_KEY_RECORDS);
-    const rawFiles = window.localStorage.getItem(STORAGE_KEY_FILES);
-    const lastSaved = window.localStorage.getItem(STORAGE_KEY_TIMESTAMP);
+    const { recordsKey, filesKey, timestampKey } = getKeys(userId);
+    const rawRecords = window.localStorage.getItem(recordsKey);
+    const rawFiles = window.localStorage.getItem(filesKey);
+    const lastSaved = window.localStorage.getItem(timestampKey);
 
     if (!rawRecords) {
       return null;
@@ -135,17 +148,18 @@ export function loadStoredAttendance(): {
 /**
  * Clears stored attendance data from localStorage
  */
-export function clearStoredAttendance(): void {
+export function clearStoredAttendance(userId?: string): void {
   if (!isStorageAvailable()) return;
   try {
-    window.localStorage.removeItem(STORAGE_KEY_RECORDS);
-    window.localStorage.removeItem(STORAGE_KEY_FILES);
-    window.localStorage.removeItem(STORAGE_KEY_TIMESTAMP);
+    const { recordsKey, filesKey, timestampKey } = getKeys(userId);
+    window.localStorage.removeItem(recordsKey);
+    window.localStorage.removeItem(filesKey);
+    window.localStorage.removeItem(timestampKey);
   } catch (err) {
     console.error('Failed to clear attendance localStorage', err);
   }
   // Also clear IndexedDB
-  clearIndexedDbAttendance().catch((err) => {
+  clearIndexedDbAttendance(userId).catch((err) => {
     console.warn('Error clearing IndexedDB:', err);
   });
 }
@@ -154,14 +168,14 @@ export function clearStoredAttendance(): void {
  * Unified loader: Attempts to load from high-capacity IndexedDB.
  * If empty, checks localStorage, migrates existing data to IndexedDB, and returns it.
  */
-export async function loadAndMigrateAttendance(): Promise<{
+export async function loadAndMigrateAttendance(userId?: string): Promise<{
   records: AttendanceRecord[];
   loadedFiles: LoadedFileMeta[];
   lastSaved: string | null;
 } | null> {
   try {
     // 1. Check IndexedDB first
-    const idbData = await loadIndexedDbAttendance();
+    const idbData = await loadIndexedDbAttendance(userId);
     if (idbData && idbData.records && idbData.records.length > 0) {
       return {
         ...idbData,
@@ -170,10 +184,10 @@ export async function loadAndMigrateAttendance(): Promise<{
     }
 
     // 2. Check localStorage fallback / legacy migration
-    const localData = loadStoredAttendance();
+    const localData = loadStoredAttendance(userId);
     if (localData && localData.records && localData.records.length > 0) {
       // Migrate to IndexedDB in background
-      saveIndexedDbAttendance(localData.records, localData.loadedFiles).catch((err) => {
+      saveIndexedDbAttendance(localData.records, localData.loadedFiles, userId).catch((err) => {
         console.warn('Background migration to IndexedDB failed:', err);
       });
       return localData;
@@ -182,7 +196,7 @@ export async function loadAndMigrateAttendance(): Promise<{
     return null;
   } catch (err) {
     console.error('Error in loadAndMigrateAttendance:', err);
-    return loadStoredAttendance();
+    return loadStoredAttendance(userId);
   }
 }
 
@@ -191,9 +205,10 @@ export async function loadAndMigrateAttendance(): Promise<{
  */
 export async function persistToIndexedDb(
   records: AttendanceRecord[],
-  loadedFiles: LoadedFileMeta[]
+  loadedFiles: LoadedFileMeta[],
+  userId?: string
 ): Promise<boolean> {
-  return saveIndexedDbAttendance(records, loadedFiles);
+  return saveIndexedDbAttendance(records, loadedFiles, userId);
 }
 
 /**
