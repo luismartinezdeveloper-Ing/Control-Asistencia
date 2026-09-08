@@ -25,7 +25,10 @@ import { parseExcelFile } from './utils/excelParser';
 import { exportConsolidatedExcel, exportDetailedAttendanceExcel } from './utils/excelExporter';
 import {
   loadStoredAttendance,
+  loadAndMigrateAttendance,
   saveStoredAttendance,
+  saveStoredAttendanceDetailed,
+  persistToIndexedDb,
   clearStoredAttendance,
   repairRecordsSite,
 } from './utils/storage';
@@ -55,6 +58,7 @@ import { ExecutivePunctualityHeatmap } from './components/ExecutivePunctualityHe
 import { AbsenceJustificationModal } from './components/AbsenceJustificationModal';
 import { NalysExportModal } from './components/NalysExportModal';
 import { GlobalPeriodFilter } from './components/GlobalPeriodFilter';
+import { QuickFlowCenter } from './components/QuickFlowCenter';
 import {
   CheckCircle2,
   AlertCircle,
@@ -252,9 +256,9 @@ export default function App() {
     setActiveTab(targetTab);
   };
 
-  // Automatically verify JWT token signature and expiration on application startup
+  // Automatically verify JWT session and hydrate/migrate storage from IndexedDB on startup
   useEffect(() => {
-    async function checkJWT() {
+    async function initApp() {
       if (currentUser) {
         const session = await verifyCurrentSession();
         if (!session.valid) {
@@ -265,8 +269,21 @@ export default function App() {
           });
         }
       }
+
+      // Check for persisted data in IndexedDB
+      try {
+        const migrated = await loadAndMigrateAttendance();
+        if (migrated && migrated.records && migrated.records.length > 0) {
+          setRecords(migrated.records);
+          if (migrated.loadedFiles && migrated.loadedFiles.length > 0) {
+            setLoadedFiles(migrated.loadedFiles);
+          }
+        }
+      } catch (err) {
+        console.warn('Initial storage hydration notice:', err);
+      }
     }
-    checkJWT();
+    initApp();
   }, []);
 
   // RBAC route protection: sync and correct activeTab whenever user or tab state change
@@ -276,9 +293,19 @@ export default function App() {
     }
   }, [currentUser, activeTab]);
 
-  // Automatically persist records to localStorage whenever records or loadedFiles change
+  // Automatically persist records to storage whenever records or loadedFiles change with quota alert and IndexedDB sync
   useEffect(() => {
-    saveStoredAttendance(records, loadedFiles);
+    const saveResult = saveStoredAttendanceDetailed(records, loadedFiles);
+    if (!saveResult.success && saveResult.error === 'QUOTA_EXCEEDED') {
+      setNotification({
+        text: '¡Advertencia de Almacenamiento! Límite de cuota del navegador alcanzado. Exporta tus datos para no perder registros.',
+        type: 'error',
+      });
+    }
+    // High-capacity transactional background backup
+    persistToIndexedDb(records, loadedFiles).catch((err) => {
+      console.warn('IndexedDB persistence warning:', err);
+    });
   }, [records, loadedFiles]);
 
   // Auto-dismiss notification after 7 seconds
@@ -502,30 +529,30 @@ export default function App() {
       {
         id: 'demo-opeconca',
         name: 'Biometrico_Opeconca_Septiembre.xlsx',
-        size: 45200,
+        size: 58200,
         format: 'OPECONCA',
-        recordsCount: 8,
+        recordsCount: 13,
         loadedAt: new Date(),
       },
       {
         id: 'demo-nalys',
         name: 'Reporte_Diario_Nalys.xlsx',
-        size: 38400,
+        size: 52400,
         format: 'NALYS',
-        recordsCount: 8,
+        recordsCount: 13,
         loadedAt: new Date(),
       },
       {
         id: 'demo-unefa',
         name: 'Reporte_Diario_UNEFA.xlsx',
-        size: 41200,
+        size: 54200,
         format: 'UNEFA',
-        recordsCount: 7,
+        recordsCount: 12,
         loadedAt: new Date(),
       },
     ]);
     setNotification({
-      text: 'Se han restaurado los datos de demostración con las 3 sedes y guardado en almacenamiento.',
+      text: 'Se han restaurado los datos con el padrón ampliado de las 3 sedes (Opeconca, Nalys y UNEFA).',
       type: 'info',
     });
   };
@@ -720,6 +747,18 @@ export default function App() {
         {isTabAccessibleForRole(activeTab, currentUser) &&
           activeTab === 'dashboard' && (
             <div>
+              {/* Centro de Control RRHH en 3 Pasos (Carga -> Semáforo -> Versión Final) */}
+              <QuickFlowCenter
+                records={records}
+                loadedFiles={loadedFiles}
+                kpis={globalKpis}
+                onFilesSelected={handleFilesSelected}
+                isLoading={isLoading}
+                onExportFinalExcel={handleExportExcel}
+                onGoToDetail={() => setActiveTab('daily_report')}
+                onLoadDemoData={handleLoadDemoData}
+              />
+
               {records.length > 0 ? (
               <div className="space-y-5">
                 {/* Executive vs Analytical Switcher Bar */}
@@ -1098,39 +1137,32 @@ export default function App() {
             ) : (
               /* Empty state */
               <div className="space-y-5">
-                <Dropzone
-                  onFilesSelected={handleFilesSelected}
-                  isLoading={isLoading}
-                  loadedFiles={loadedFiles}
-                  onLoadDemoData={handleLoadDemoData}
-                  hasData={false}
-                />
-                <div className="bg-white rounded-xl border border-gray-200 p-12 text-center shadow-xs">
-                  <div className="w-14 h-14 rounded-full bg-gray-100 flex items-center justify-center mx-auto text-gray-400 mb-3">
+                <div className="bg-white rounded-2xl border border-gray-200 p-10 text-center shadow-xs">
+                  <div className="w-14 h-14 rounded-full bg-blue-50 text-[#1F4E79] flex items-center justify-center mx-auto mb-3">
                     <FileSpreadsheet className="w-7 h-7" />
                   </div>
                   <h3 className="text-base font-bold text-gray-800">
-                    No hay datos de asistencia cargados
+                    Aún no has cargado asistencias para analizar
                   </h3>
                   <p className="text-xs text-gray-500 max-w-md mx-auto mt-1 mb-5">
-                    Puedes cargar un documento para cada día del mes usando la pestaña &ldquo;Cargar por Día del Mes&rdquo; o cargar los datos de demostración.
+                    Utiliza el cuadro superior (Paso 1) para soltar tus archivos Excel reales o pulsa abajo para probar con datos demo.
                   </p>
                   <div className="flex flex-wrap items-center justify-center gap-3">
                     <button
                       type="button"
-                      onClick={() => handleSelectTab('daily_uploader')}
-                      className="inline-flex items-center gap-2 px-3.5 py-2 bg-[#1F4E79] hover:bg-[#163857] text-white font-bold rounded-lg text-xs transition-colors cursor-pointer"
+                      onClick={handleLoadDemoData}
+                      className="inline-flex items-center gap-2 px-4 py-2.5 bg-[#1F4E79] hover:bg-[#163857] text-white font-bold rounded-xl text-xs transition-colors shadow-sm cursor-pointer"
                     >
-                      <CalendarPlus className="w-4 h-4 text-blue-200" />
-                      <span>Ir a Cargar por Día del Mes</span>
+                      <Sparkles className="w-4 h-4 text-amber-300" />
+                      <span>Cargar Datos de Demostración</span>
                     </button>
                     <button
                       type="button"
-                      onClick={handleLoadDemoData}
-                      className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-lg text-xs border border-slate-300 transition-colors cursor-pointer"
+                      onClick={() => handleSelectTab('daily_uploader')}
+                      className="inline-flex items-center gap-2 px-3.5 py-2 bg-slate-100 hover:bg-slate-200 text-slate-800 font-bold rounded-xl text-xs border border-slate-300 transition-colors cursor-pointer"
                     >
-                      <Sparkles className="w-4 h-4 text-amber-500" />
-                      <span>Cargar Datos de Demostración</span>
+                      <CalendarPlus className="w-4 h-4 text-[#1F4E79]" />
+                      <span>Carga Avanzada por Día del Mes</span>
                     </button>
                   </div>
                 </div>

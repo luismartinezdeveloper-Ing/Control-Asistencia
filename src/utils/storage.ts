@@ -1,4 +1,9 @@
 import { AttendanceRecord, LoadedFileMeta } from '../types/attendance';
+import {
+  saveIndexedDbAttendance,
+  loadIndexedDbAttendance,
+  clearIndexedDbAttendance,
+} from './indexedDbStorage';
 
 const STORAGE_KEY_RECORDS = 'assistpro_attendance_records_v1';
 const STORAGE_KEY_FILES = 'assistpro_attendance_files_v1';
@@ -18,27 +23,75 @@ export function isStorageAvailable(): boolean {
   }
 }
 
+export interface StorageSaveResult {
+  success: boolean;
+  error?: 'QUOTA_EXCEEDED' | 'STORAGE_UNAVAILABLE' | 'SERIALIZATION_FAILED' | 'UNKNOWN';
+  message?: string;
+}
+
 /**
- * Saves records and file metadata to localStorage
+ * Saves records and file metadata to localStorage with quota overflow protection.
  */
 export function saveStoredAttendance(
   records: AttendanceRecord[],
   loadedFiles: LoadedFileMeta[]
 ): boolean {
-  if (!isStorageAvailable()) return false;
+  const res = saveStoredAttendanceDetailed(records, loadedFiles);
+  return res.success;
+}
+
+/**
+ * Detailed save function providing granular error causes for monitoring and UI alerts
+ */
+export function saveStoredAttendanceDetailed(
+  records: AttendanceRecord[],
+  loadedFiles: LoadedFileMeta[]
+): StorageSaveResult {
+  if (!isStorageAvailable()) {
+    return {
+      success: false,
+      error: 'STORAGE_UNAVAILABLE',
+      message: 'El almacenamiento local (localStorage) no está disponible en este navegador.',
+    };
+  }
+
   try {
-    window.localStorage.setItem(STORAGE_KEY_RECORDS, JSON.stringify(records));
-    // Serialize LoadedFileMeta ensuring loadedAt is converted properly
+    const serializedRecords = JSON.stringify(records);
     const filesToStore = loadedFiles.map((f) => ({
       ...f,
       loadedAt: f.loadedAt instanceof Date ? f.loadedAt.toISOString() : f.loadedAt,
     }));
-    window.localStorage.setItem(STORAGE_KEY_FILES, JSON.stringify(filesToStore));
+    const serializedFiles = JSON.stringify(filesToStore);
+
+    window.localStorage.setItem(STORAGE_KEY_RECORDS, serializedRecords);
+    window.localStorage.setItem(STORAGE_KEY_FILES, serializedFiles);
     window.localStorage.setItem(STORAGE_KEY_TIMESTAMP, new Date().toISOString());
-    return true;
-  } catch (err) {
+
+    return { success: true };
+  } catch (err: unknown) {
     console.error('Failed to save attendance data to localStorage', err);
-    return false;
+
+    const isQuota =
+      err instanceof DOMException &&
+      (err.name === 'QuotaExceededError' ||
+        err.code === 22 ||
+        err.code === 1014 ||
+        err.name === 'NS_ERROR_DOM_QUOTA_REACHED');
+
+    if (isQuota) {
+      return {
+        success: false,
+        error: 'QUOTA_EXCEEDED',
+        message:
+          'Se ha excedido el límite de almacenamiento del navegador (~5 MB). Exporta los datos o utiliza persistencia extendida.',
+      };
+    }
+
+    return {
+      success: false,
+      error: 'UNKNOWN',
+      message: err instanceof Error ? err.message : 'Error desconocido al guardar en almacenamiento.',
+    };
   }
 }
 
@@ -91,6 +144,56 @@ export function clearStoredAttendance(): void {
   } catch (err) {
     console.error('Failed to clear attendance localStorage', err);
   }
+  // Also clear IndexedDB
+  clearIndexedDbAttendance().catch((err) => {
+    console.warn('Error clearing IndexedDB:', err);
+  });
+}
+
+/**
+ * Unified loader: Attempts to load from high-capacity IndexedDB.
+ * If empty, checks localStorage, migrates existing data to IndexedDB, and returns it.
+ */
+export async function loadAndMigrateAttendance(): Promise<{
+  records: AttendanceRecord[];
+  loadedFiles: LoadedFileMeta[];
+  lastSaved: string | null;
+} | null> {
+  try {
+    // 1. Check IndexedDB first
+    const idbData = await loadIndexedDbAttendance();
+    if (idbData && idbData.records && idbData.records.length > 0) {
+      return {
+        ...idbData,
+        records: repairRecordsSite(idbData.records),
+      };
+    }
+
+    // 2. Check localStorage fallback / legacy migration
+    const localData = loadStoredAttendance();
+    if (localData && localData.records && localData.records.length > 0) {
+      // Migrate to IndexedDB in background
+      saveIndexedDbAttendance(localData.records, localData.loadedFiles).catch((err) => {
+        console.warn('Background migration to IndexedDB failed:', err);
+      });
+      return localData;
+    }
+
+    return null;
+  } catch (err) {
+    console.error('Error in loadAndMigrateAttendance:', err);
+    return loadStoredAttendance();
+  }
+}
+
+/**
+ * Asynchronously persists records to IndexedDB without blocking the UI thread
+ */
+export async function persistToIndexedDb(
+  records: AttendanceRecord[],
+  loadedFiles: LoadedFileMeta[]
+): Promise<boolean> {
+  return saveIndexedDbAttendance(records, loadedFiles);
 }
 
 /**

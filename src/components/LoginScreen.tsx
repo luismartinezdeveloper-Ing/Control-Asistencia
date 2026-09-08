@@ -27,13 +27,11 @@ import {
 import { UserAccount, ScrumRole } from '../types/auth';
 import {
   DEMO_PASSWORD_STANDARD,
-  authenticateUser,
-  hashPassword,
-  getStoredUsers,
-  saveStoredUsers,
-  sanitizeUser,
+  DEMO_ACCOUNTS,
+  loginUser,
+  registerUser,
+  saveStoredCurrentUser,
 } from '../utils/authStorage';
-import { createJWT, saveStoredJWTToken } from '../utils/jwt';
 import { validatePasswordPolicy } from '../utils/passwordValidator';
 
 interface LoginScreenProps {
@@ -101,7 +99,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     return regPassword === regConfirmPassword;
   }, [regPassword, regConfirmPassword]);
 
-  // Handle Login submission
+  // Handle Login submission — calls backend /auth/login
   const handleLoginSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -121,7 +119,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     setIsProcessing(true);
 
     try {
-      const authResult = authenticateUser(cleanEmail, loginPassword);
+      const authResult = await loginUser(cleanEmail, loginPassword);
 
       if (!authResult.success || !authResult.user) {
         setErrorMsg(authResult.error || 'Credenciales no válidas o usuario no registrado.');
@@ -129,16 +127,10 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
         return;
       }
 
-      // Generate signed JWT token with HMAC-SHA256
-      const jwtToken = await createJWT(authResult.user);
-      saveStoredJWTToken(jwtToken);
+      // Save sanitized user to localStorage for UI state
+      saveStoredCurrentUser(authResult.user);
 
-      const sessionUser = {
-        ...authResult.user,
-        jwtToken,
-      };
-
-      onLogin(sessionUser);
+      onLogin(authResult.user);
     } catch (err) {
       setErrorMsg('Ocurrió un error inesperado al validar la sesión. Intente nuevamente.');
     } finally {
@@ -146,7 +138,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
     }
   };
 
-  // Handle Registration submission
+  // Handle Registration submission — calls backend /auth/register
   const handleRegisterSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
@@ -165,15 +157,7 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       return;
     }
 
-    // Check if user already exists
-    const allUsers = getStoredUsers();
-    const existing = allUsers.find((u) => u.email.toLowerCase() === cleanEmail);
-    if (existing) {
-      setErrorMsg('Ya existe una cuenta registrada con este correo electrónico. Por favor inicia sesión.');
-      return;
-    }
-
-    // Role authorization check for elevated permissions (PO / SM)
+    // Role authorization check for elevated permissions (PO / SM) — client-side pre-check
     if (regRole === 'PRODUCT_OWNER' || regRole === 'SCRUM_MASTER') {
       if (regAuthCode.trim() !== ADMIN_AUTHORIZATION_CODE) {
         setErrorMsg(
@@ -207,33 +191,31 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
       const biometricName =
         regBiometricName.trim() || cleanName.toUpperCase().replace(/\s+/g, ' ');
 
-      const newUser: UserAccount = {
-        id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      const regResult = await registerUser({
         name: cleanName,
         email: cleanEmail,
+        password: regPassword,
         role: regRole,
         roleTitle,
         department: regDepartment,
         site: regSite,
         linkedEmployeeName: biometricName,
-        passwordHash: hashPassword(regPassword),
-      };
+        authCode: regAuthCode.trim() || undefined,
+      });
 
-      // Persist to user registry
-      saveStoredUsers([...allUsers, newUser]);
+      if (!regResult.success || !regResult.user) {
+        setErrorMsg(regResult.error || 'Error al registrar la cuenta de usuario.');
+        setIsProcessing(false);
+        return;
+      }
 
-      // Generate signed JWT token
-      const safeUser = sanitizeUser(newUser);
-      const jwtToken = await createJWT(safeUser);
-      saveStoredJWTToken(jwtToken);
+      // Save sanitized user to localStorage
+      saveStoredCurrentUser(regResult.user);
 
       setSuccessMsg('¡Cuenta creada exitosamente! Iniciando sesión...');
 
       setTimeout(() => {
-        onLogin({
-          ...safeUser,
-          jwtToken,
-        });
+        onLogin(regResult.user!);
       }, 700);
     } catch (err) {
       setErrorMsg('Error al registrar la cuenta de usuario.');
@@ -439,6 +421,47 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                     Regístrate aquí
                   </button>
                 </span>
+              </div>
+
+              {/* Botones de Acceso Rápido Demo */}
+              <div className="pt-4 border-t border-slate-800/80">
+                <div className="flex items-center justify-between mb-2.5">
+                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
+                    <Zap className="w-3.5 h-3.5 text-amber-400" />
+                    Acceso Rápido Demo (1 Clic)
+                  </span>
+                  <span className="text-[10px] text-slate-500">Clave: {DEMO_PASSWORD_STANDARD}</span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {DEMO_ACCOUNTS.map((acc) => (
+                    <button
+                      key={acc.id}
+                      type="button"
+                      onClick={() => {
+                        setLoginEmail(acc.email);
+                        setLoginPassword(DEMO_PASSWORD_STANDARD);
+                        setErrorMsg(null);
+                      }}
+                      className="p-2.5 rounded-xl bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800 hover:border-blue-500/50 text-left transition-all group cursor-pointer"
+                    >
+                      <div className="flex items-center justify-between">
+                        <span className="text-xs font-bold text-slate-200 group-hover:text-blue-400 truncate">
+                          {acc.name}
+                        </span>
+                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0 font-medium">
+                          {acc.role === 'PRODUCT_OWNER'
+                            ? 'PO'
+                            : acc.role === 'SCRUM_MASTER'
+                            ? 'Scrum Master'
+                            : acc.role === 'DEVELOPMENT_TEAM'
+                            ? 'Dev Team'
+                            : 'Stakeholder'}
+                        </span>
+                      </div>
+                      <p className="text-[10.5px] text-slate-400 truncate mt-0.5">{acc.email}</p>
+                    </button>
+                  ))}
+                </div>
               </div>
             </form>
           )}
