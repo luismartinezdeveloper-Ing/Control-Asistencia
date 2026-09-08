@@ -111,7 +111,7 @@ export async function loginUser(
         success: false,
         error: match
           ? 'Contraseña incorrecta.'
-          : 'Usuario no registrado. Si eres nuevo, regístrate en la pestaña "Registrarse".',
+          : 'Usuario no registrado. El auto-registro público está deshabilitado. Solicite sus credenciales a Recursos Humanos o Control Interno.',
       };
     }
 

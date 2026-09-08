@@ -68,6 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   onLogout,
   onOpenChangePassword,
+  onOpenUserManagement,
   activeTab,
   onSelectTab,
   onExportExcel,

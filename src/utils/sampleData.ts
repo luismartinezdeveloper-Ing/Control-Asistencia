@@ -697,6 +697,10 @@ export function computeEmployeeSummaries(records: AttendanceRecord[]): EmployeeS
       totalGross: number;
       totalNet: number;
       totalScheduled: number;
+      diurnalOvertime: number;
+      nocturnalOvertime: number;
+      holidayWorked: number;
+      unjustifiedAbsences: number;
     }
   >();
 
