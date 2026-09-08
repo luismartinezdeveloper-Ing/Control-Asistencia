@@ -26,6 +26,8 @@ export interface ParseAudit {
     deficit: number;
     neutral: number;
   };
+  hasDateWarning?: boolean;
+  dateWarningReason?: string;
 }
 
 export interface ParseResult {
@@ -445,6 +447,17 @@ function detectNameColumnByContent(
 }
 
 /**
+ * Generate a cryptographically unique record ID using crypto.randomUUID()
+ */
+function generateUniqueId(prefix: string, name: string, date: string): string {
+  const cleanName = name.replace(/[^a-zA-Z0-9]/g, '');
+  const uuid = typeof crypto !== 'undefined' && crypto.randomUUID
+    ? crypto.randomUUID()
+    : `${Date.now()}_${Math.random().toString(36).slice(2, 9)}`;
+  return `${prefix}_${cleanName}_${date}_${uuid}`;
+}
+
+/**
  * Pure parsing engine that accepts an ArrayBuffer and fileName.
  * Can be executed seamlessly in Web Workers without any DOM / File dependency.
  */
@@ -470,6 +483,7 @@ export function parseExcelArrayBuffer(
   let primarySiteName = overrideSite || 'General';
   const detectedColumnsAcrossSheets = new Set<string>();
   let primaryHeaderRowIndex = 0;
+  let hasDateFallbackTriggered = false;
 
   // Process EVERY sheet in the workbook
   for (const sheetName of workbook.SheetNames) {
@@ -626,6 +640,7 @@ export function parseExcelArrayBuffer(
     }
     if (!sheetFallbackDate) {
       sheetFallbackDate = new Date().toISOString().slice(0, 10);
+      hasDateFallbackTriggered = true;
     }
 
     // Fallback site from overrideSite, sheet name, file name, or format
@@ -739,7 +754,7 @@ export function parseExcelArrayBuffer(
           );
 
           allRecords.push({
-            id: `mat_${empName.replace(/[^a-zA-Z0-9]/g, '')}_${dayDateStr}_${Math.random().toString(36).slice(2, 6)}`,
+            id: generateUniqueId('mat', empName, dayDateStr),
             employeeName: empName,
             department,
             site,
@@ -883,7 +898,7 @@ export function parseExcelArrayBuffer(
         );
 
         allRecords.push({
-          id: `ope_${employeeName.replace(/[^a-zA-Z0-9]/g, '')}_${date}_${Math.random().toString(36).slice(2, 6)}`,
+          id: generateUniqueId('ope', employeeName, date),
           employeeName,
           department: groupPunches[0].department,
           site: groupPunches[0].site,
@@ -980,7 +995,7 @@ export function parseExcelArrayBuffer(
         }
 
         allRecords.push({
-          id: `rec_${employeeName.replace(/[^a-zA-Z0-9]/g, '')}_${date}_${Math.random().toString(36).slice(2, 6)}`,
+          id: generateUniqueId('rec', employeeName, date),
           employeeName,
           department,
           site,
@@ -1036,6 +1051,10 @@ export function parseExcelArrayBuffer(
     detectedColumns: Array.from(detectedColumnsAcrossSheets),
     employeeList,
     statusSummary,
+    hasDateWarning: hasDateFallbackTriggered,
+    dateWarningReason: hasDateFallbackTriggered
+      ? 'No se detectó fecha explícita en las cabeceras ni en el nombre del archivo. Se asignó la fecha actual por defecto. Por favor verifica las fechas registradas.'
+      : undefined,
   };
 
   return {

@@ -1,5 +1,7 @@
 import { Router, Request, Response } from 'express';
 import jwt from 'jsonwebtoken';
+import rateLimit from 'express-rate-limit';
+import crypto from 'crypto';
 import {
   getUserByEmail,
   getUserById,
@@ -12,6 +14,18 @@ import { authMiddleware } from '../middleware/auth';
 import { JWTPayload, ServerUserAccount } from '../types/jwtPayload';
 
 const router = Router();
+
+/**
+ * Rate limiter for authentication endpoints: max 7 attempts per 15 minutes per IP.
+ */
+export const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000, // 15 minutes
+  max: 7, // 7 attempts per window
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { error: 'Demasiados intentos de autenticación. Por favor intenta de nuevo en 15 minutos.' },
+  skip: (req) => process.env.NODE_ENV === 'test' && req.headers['x-skip-rate-limit'] === 'true',
+});
 
 const getSecret = (): string => {
   const secret = process.env.JWT_SECRET;
@@ -48,7 +62,7 @@ function signToken(user: ServerUserAccount): string {
     site: user.site,
     linkedEmployeeName: user.linkedEmployeeName,
     iss: 'opeconca-attendance-auth-service',
-    jti: `jwt_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`,
+    jti: `jwt_${crypto.randomUUID()}`,
   };
 
   return jwt.sign(payload, getSecret(), { expiresIn: '1h' });
@@ -57,7 +71,7 @@ function signToken(user: ServerUserAccount): string {
 // ---------------------------------------------------------------------------
 // POST /auth/register
 // ---------------------------------------------------------------------------
-router.post('/register', (req: Request, res: Response) => {
+router.post('/register', authLimiter, (req: Request, res: Response) => {
   try {
     const { name, email, password, role, roleTitle, department, site, linkedEmployeeName, authCode } = req.body;
 
@@ -106,7 +120,7 @@ router.post('/register', (req: Request, res: Response) => {
     }
 
     const newUser: ServerUserAccount = {
-      id: `usr_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`,
+      id: `usr_${crypto.randomUUID()}`,
       name: name.trim(),
       email: email.trim().toLowerCase(),
       role: userRole,
@@ -137,7 +151,7 @@ router.post('/register', (req: Request, res: Response) => {
 // ---------------------------------------------------------------------------
 // POST /auth/login
 // ---------------------------------------------------------------------------
-router.post('/login', (req: Request, res: Response) => {
+router.post('/login', authLimiter, (req: Request, res: Response) => {
   try {
     const { email, password } = req.body;
 

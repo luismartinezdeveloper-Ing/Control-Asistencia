@@ -91,7 +91,9 @@ function readUsersFile(): ServerUserAccount[] {
 
 function writeUsersFile(users: ServerUserAccount[]): void {
   ensureDataDir();
-  fs.writeFileSync(USERS_FILE, JSON.stringify(users, null, 2), 'utf-8');
+  const tempFile = `${USERS_FILE}.${Date.now()}.${Math.random().toString(36).substring(2, 7)}.tmp`;
+  fs.writeFileSync(tempFile, JSON.stringify(users, null, 2), 'utf-8');
+  fs.renameSync(tempFile, USERS_FILE);
 }
 
 // ---------------------------------------------------------------------------

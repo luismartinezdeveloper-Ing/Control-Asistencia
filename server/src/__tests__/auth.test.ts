@@ -42,6 +42,7 @@ describe('Auth API', () => {
     it('should create a new user and return 201 with Set-Cookie', async () => {
       const res = await request(app)
         .post('/auth/register')
+        .set('x-skip-rate-limit', 'true')
         .send({
           name: 'Test User',
           email: 'test@example.com',
@@ -73,6 +74,7 @@ describe('Auth API', () => {
     it('should return 409 if email already exists', async () => {
       const res = await request(app)
         .post('/auth/register')
+        .set('x-skip-rate-limit', 'true')
         .send({
           name: 'Duplicate',
           email: 'test@example.com',
@@ -86,6 +88,7 @@ describe('Auth API', () => {
     it('should return 400 if required fields are missing', async () => {
       const res = await request(app)
         .post('/auth/register')
+        .set('x-skip-rate-limit', 'true')
         .send({ name: 'Incomplete' });
 
       expect(res.status).toBe(400);
@@ -94,6 +97,7 @@ describe('Auth API', () => {
     it('should return 403 for elevated role without auth code', async () => {
       const res = await request(app)
         .post('/auth/register')
+        .set('x-skip-rate-limit', 'true')
         .send({
           name: 'Wannabe Admin',
           email: 'admin@example.com',
@@ -107,6 +111,7 @@ describe('Auth API', () => {
     it('should allow elevated role with correct auth code', async () => {
       const res = await request(app)
         .post('/auth/register')
+        .set('x-skip-rate-limit', 'true')
         .send({
           name: 'Real Admin',
           email: 'realadmin@example.com',
@@ -140,6 +145,7 @@ describe('Auth API', () => {
     it('should login with valid credentials and return 200 with cookie', async () => {
       const res = await request(app)
         .post('/auth/login')
+        .set('x-skip-rate-limit', 'true')
         .send({
           email: 'test@example.com',
           password: 'TestPass123!',
@@ -158,6 +164,7 @@ describe('Auth API', () => {
     it('should login with demo account credentials', async () => {
       const res = await request(app)
         .post('/auth/login')
+        .set('x-skip-rate-limit', 'true')
         .send({
           email: 'carlos.mendoza@empresa.com',
           password: 'Scrum2026!*',
@@ -171,6 +178,7 @@ describe('Auth API', () => {
     it('should return 401 with invalid password', async () => {
       const res = await request(app)
         .post('/auth/login')
+        .set('x-skip-rate-limit', 'true')
         .send({
           email: 'test@example.com',
           password: 'WrongPassword',
@@ -183,6 +191,7 @@ describe('Auth API', () => {
     it('should return 401 for non-existent email', async () => {
       const res = await request(app)
         .post('/auth/login')
+        .set('x-skip-rate-limit', 'true')
         .send({
           email: 'nonexistent@example.com',
           password: 'SomePass',
@@ -207,6 +216,7 @@ describe('Auth API', () => {
       // First login to get the cookie
       const loginRes = await request(app)
         .post('/auth/login')
+        .set('x-skip-rate-limit', 'true')
         .send({
           email: 'test@example.com',
           password: 'TestPass123!',
@@ -219,7 +229,7 @@ describe('Auth API', () => {
       // Use cookie to call /auth/me
       const meRes = await request(app)
         .get('/auth/me')
-        .set('Cookie', cookieHeader);
+        .set('Cookie', cookieHeader || '');
 
       expect(meRes.status).toBe(200);
       expect(meRes.body.user).toBeDefined();
@@ -239,6 +249,7 @@ describe('Auth API', () => {
       // Login to get the cookie, extract token from it
       const loginRes = await request(app)
         .post('/auth/login')
+        .set('x-skip-rate-limit', 'true')
         .send({
           email: 'test@example.com',
           password: 'TestPass123!',
@@ -285,6 +296,30 @@ describe('Auth API', () => {
       expect(res.status).toBe(200);
       expect(res.body.status).toBe('ok');
       expect(res.body.timestamp).toBeDefined();
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Rate Limiting Protection (7 attempts limit)
+  // -----------------------------------------------------------------------
+  describe('Rate Limiter Protection', () => {
+    it('should block login requests after 7 failed attempts with 429 status', async () => {
+      const email = `ratelimit_${Date.now()}@example.com`;
+
+      // Send 7 requests (up to limit)
+      for (let i = 0; i < 7; i++) {
+        await request(app)
+          .post('/auth/login')
+          .send({ email, password: 'wrongpassword' });
+      }
+
+      // 8th request should be blocked with 429
+      const blockedRes = await request(app)
+        .post('/auth/login')
+        .send({ email, password: 'wrongpassword' });
+
+      expect(blockedRes.status).toBe(429);
+      expect(blockedRes.body.error).toContain('Demasiados intentos de autenticación');
     });
   });
 });

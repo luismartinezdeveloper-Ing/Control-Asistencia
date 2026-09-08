@@ -341,19 +341,19 @@ export function exportDailyExcel(date: string, records: AttendanceRecord[]) {
     if (r.status === 'NEUTRAL') estado = 'Caso Neutral / Incompleto';
 
     detailData.push([
-      r.employeeName,
-      r.site,
-      r.department,
-      r.earliestTime,
-      r.latestTime,
+      sanitizeExcelCell(r.employeeName),
+      sanitizeExcelCell(r.site),
+      sanitizeExcelCell(r.department),
+      sanitizeExcelCell(r.earliestTime),
+      sanitizeExcelCell(r.latestTime),
       r.isNeutralCase ? 'N/A' : r.grossHours,
       r.isNeutralCase ? 0 : r.lunchDeductionHours,
       r.isNeutralCase ? 0 : r.netHours,
       r.isNeutralCase ? 0 : r.scheduledHours,
       r.isNeutralCase ? 0 : r.varianceHours,
       estado,
-      r.sourceFile,
-      r.notes || (r.isNeutralCase ? 'Marcación única sin penalización' : 'Jornada normal'),
+      sanitizeExcelCell(r.sourceFile),
+      sanitizeExcelCell(r.notes || (r.isNeutralCase ? 'Marcación única sin penalización' : 'Jornada normal')),
     ]);
   });
 

@@ -15,6 +15,9 @@ const PORT = process.env.PORT || 3001;
 // Middleware
 // ---------------------------------------------------------------------------
 
+// Trust first proxy (useful for Vite proxy, Nginx, Cloudflare) so rate-limiter gets true client IP
+app.set('trust proxy', 1);
+
 // CORS — allow frontend origin with credentials (cookies)
 app.use(
   cors({
