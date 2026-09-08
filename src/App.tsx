@@ -59,6 +59,7 @@ import { ExecutivePunctualityHeatmap } from './components/ExecutivePunctualityHe
 import { AbsenceJustificationModal } from './components/AbsenceJustificationModal';
 import { NalysExportModal } from './components/NalysExportModal';
 import { ChangePasswordModal } from './components/ChangePasswordModal';
+import { UserManagementModal } from './components/UserManagementModal';
 import { GlobalPeriodFilter } from './components/GlobalPeriodFilter';
 import { QuickFlowCenter } from './components/QuickFlowCenter';
 import {
@@ -170,6 +171,7 @@ export default function App() {
   });
 
   const [isChangePasswordOpen, setIsChangePasswordOpen] = useState(false);
+  const [isUserManagementOpen, setIsUserManagementOpen] = useState(false);
 
   const [notification, setNotification] = useState<{
     text: string;
@@ -598,6 +600,7 @@ export default function App() {
         currentUser={currentUser}
         onLogout={handleLogout}
         onOpenChangePassword={() => setIsChangePasswordOpen(true)}
+        onOpenUserManagement={() => setIsUserManagementOpen(true)}
         activeTab={activeTab}
         onSelectTab={handleSelectTab}
         onExportExcel={handleExportExcel}
@@ -1266,6 +1269,13 @@ export default function App() {
         isOpen={isChangePasswordOpen}
         onClose={() => setIsChangePasswordOpen(false)}
         userEmail={currentUser?.email}
+      />
+
+      {/* Internal Control User Management Modal */}
+      <UserManagementModal
+        isOpen={isUserManagementOpen}
+        onClose={() => setIsUserManagementOpen(false)}
+        currentUser={currentUser}
       />
     </div>
   );

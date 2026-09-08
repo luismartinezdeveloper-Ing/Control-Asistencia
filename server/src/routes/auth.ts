@@ -3,6 +3,7 @@ import jwt from 'jsonwebtoken';
 import rateLimit from 'express-rate-limit';
 import crypto from 'crypto';
 import {
+  getUsers,
   getUserByEmail,
   getUserById,
   addUser,
@@ -70,52 +71,74 @@ function signToken(user: ServerUserAccount): string {
 }
 
 // ---------------------------------------------------------------------------
-// POST /auth/register
+// POST /auth/register — DISABLED (Public Self-Registration is Closed)
 // ---------------------------------------------------------------------------
-router.post('/register', authLimiter, (req: Request, res: Response) => {
-  try {
-    const { name, email, password, role, roleTitle, department, site, linkedEmployeeName, authCode } = req.body;
+router.post('/register', authLimiter, (_req: Request, res: Response) => {
+  res.status(403).json({
+    error: 'El auto-registro público está deshabilitado. El sistema funciona en modo cerrado. Solicite sus credenciales a Control Interno / Recursos Humanos.',
+  });
+});
 
-    // Basic validation
-    if (!name || !email || !password) {
-      res.status(400).json({ error: 'Nombre, correo y contraseña son obligatorios.' });
+// ---------------------------------------------------------------------------
+// Protected Administrative User Management Endpoints (Internal Control)
+// ---------------------------------------------------------------------------
+
+/**
+ * GET /auth/admin/users — List all accounts (Protected for PO / SM)
+ */
+router.get('/admin/users', authMiddleware, (req: Request, res: Response) => {
+  try {
+    const payload = req.user!;
+    if (payload.role !== 'PRODUCT_OWNER' && payload.role !== 'SCRUM_MASTER') {
+      res.status(403).json({ error: 'Permiso denegado: Reservado para Control Interno y Recursos Humanos.' });
       return;
     }
 
-    // Mandatory domain validation: must end with @opeconca.net or @grupoopeconca.com
+    const users = getUsers().map(sanitizeUser);
+    res.json({ users });
+  } catch (err) {
+    console.error('[auth/admin/users] Error:', err);
+    res.status(500).json({ error: 'Error al consultar usuarios.' });
+  }
+});
+
+/**
+ * POST /auth/admin/users — Provision a new account (Protected for PO / SM)
+ */
+router.post('/admin/users', authMiddleware, (req: Request, res: Response) => {
+  try {
+    const payload = req.user!;
+    if (payload.role !== 'PRODUCT_OWNER' && payload.role !== 'SCRUM_MASTER') {
+      res.status(403).json({ error: 'Permiso denegado: Reservado para Control Interno y Recursos Humanos.' });
+      return;
+    }
+
+    const { name, email, password, role, roleTitle, department, site, linkedEmployeeName } = req.body;
+
+    if (!name || !email || !password) {
+      res.status(400).json({ error: 'Nombre, correo y contraseña inicial son obligatorios.' });
+      return;
+    }
+
     const normalizedEmail = String(email).trim().toLowerCase();
     if (!normalizedEmail.endsWith('@opeconca.net') && !normalizedEmail.endsWith('@grupoopeconca.com')) {
       res.status(400).json({
-        error: 'Acceso denegado: El registro está restringido exclusivamente a correos corporativos del dominio @opeconca.net o @grupoopeconca.com.',
+        error: 'El correo debe pertenecer al dominio corporativo @opeconca.net o @grupoopeconca.com.',
       });
       return;
     }
 
-    // Check password minimum length
     if (password.length < 8) {
-      res.status(400).json({ error: 'La contraseña debe tener al menos 8 caracteres.' });
+      res.status(400).json({ error: 'La contraseña inicial debe tener al menos 8 caracteres.' });
       return;
     }
 
-    // Check duplicate
     if (getUserByEmail(email)) {
-      res.status(409).json({ error: 'Ya existe una cuenta registrada con este correo electrónico.' });
+      res.status(409).json({ error: 'Ya existe un usuario registrado con este correo electrónico.' });
       return;
     }
 
-    // Elevated role authorization check
     const userRole = role || 'DEVELOPMENT_TEAM';
-    if (userRole === 'PRODUCT_OWNER' || userRole === 'SCRUM_MASTER') {
-      const validCode = process.env.ADMIN_AUTH_CODE || 'ADMIN2026';
-      if (!authCode || authCode.trim() !== validCode) {
-        res.status(403).json({
-          error: `Para registrar un rol administrativo (${userRole.replace('_', ' ')}), se requiere un Código de Autorización Corporativo válido.`,
-        });
-        return;
-      }
-    }
-
-    // Compute role title if not provided
     let computedRoleTitle = roleTitle;
     if (!computedRoleTitle) {
       if (userRole === 'PRODUCT_OWNER') computedRoleTitle = 'Product Owner / Gerente General';
@@ -127,29 +150,69 @@ router.post('/register', authLimiter, (req: Request, res: Response) => {
     const newUser: ServerUserAccount = {
       id: `usr_${crypto.randomUUID()}`,
       name: name.trim(),
-      email: email.trim().toLowerCase(),
+      email: normalizedEmail,
       role: userRole,
       roleTitle: computedRoleTitle,
-      department: department || undefined,
-      site: site || undefined,
+      department: department || 'Operaciones y Logística',
+      site: site || 'Oficina Opeconca',
       linkedEmployeeName: linkedEmployeeName || name.trim().toUpperCase(),
       passwordHash: hashPassword(password),
     };
 
     addUser(newUser);
 
-    // Sign JWT and set cookie
-    const token = signToken(newUser);
-    res.cookie('token', token, getCookieOptions());
-
     res.status(201).json({ user: sanitizeUser(newUser) });
   } catch (err: any) {
     if (err.message === 'DUPLICATE_EMAIL') {
-      res.status(409).json({ error: 'Ya existe una cuenta registrada con este correo electrónico.' });
+      res.status(409).json({ error: 'Ya existe un usuario registrado con este correo electrónico.' });
       return;
     }
-    console.error('[auth/register] Error:', err);
-    res.status(500).json({ error: 'Error interno del servidor al registrar la cuenta.' });
+    console.error('[auth/admin/users/create] Error:', err);
+    res.status(500).json({ error: 'Error interno del servidor al crear usuario.' });
+  }
+});
+
+/**
+ * POST /auth/admin/users/reset-password — Admin password reset (Protected for PO / SM)
+ */
+router.post('/admin/users/reset-password', authMiddleware, (req: Request, res: Response) => {
+  try {
+    const payload = req.user!;
+    if (payload.role !== 'PRODUCT_OWNER' && payload.role !== 'SCRUM_MASTER') {
+      res.status(403).json({ error: 'Permiso denegado: Reservado para Control Interno y Recursos Humanos.' });
+      return;
+    }
+
+    const { userId, newPassword } = req.body;
+
+    if (!userId || !newPassword) {
+      res.status(400).json({ error: 'El ID de usuario y la nueva contraseña son obligatorios.' });
+      return;
+    }
+
+    if (newPassword.length < 8) {
+      res.status(400).json({ error: 'La nueva contraseña debe tener al menos 8 caracteres.' });
+      return;
+    }
+
+    const targetUser = getUserById(userId);
+    if (!targetUser) {
+      res.status(404).json({ error: 'Usuario no encontrado.' });
+      return;
+    }
+
+    const newHash = hashPassword(newPassword);
+    const updated = updateUserPassword(targetUser.id, newHash);
+
+    if (!updated) {
+      res.status(500).json({ error: 'No se pudo restablecer la contraseña.' });
+      return;
+    }
+
+    res.json({ message: `Contraseña restablecida exitosamente para ${targetUser.email}.` });
+  } catch (err) {
+    console.error('[auth/admin/users/reset-password] Error:', err);
+    res.status(500).json({ error: 'Error al restablecer la contraseña.' });
   }
 });
 

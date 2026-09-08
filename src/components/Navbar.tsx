@@ -41,6 +41,7 @@ interface NavbarProps {
   currentUser: UserAccount | null;
   onLogout: () => void;
   onOpenChangePassword?: () => void;
+  onOpenUserManagement?: () => void;
   activeTab: AppTab;
   onSelectTab: (tab: AppTab) => void;
   onExportExcel: () => void;
@@ -201,6 +202,19 @@ export const Navbar: React.FC<NavbarProps> = ({
               <HelpCircle className="w-3.5 h-3.5 text-blue-200" />
               <span className="hidden sm:inline">Reglas</span>
             </button>
+
+            {(currentUser?.role === 'PRODUCT_OWNER' || currentUser?.role === 'SCRUM_MASTER') && onOpenUserManagement && (
+              <button
+                id="btn-user-management"
+                type="button"
+                onClick={onOpenUserManagement}
+                className="px-2.5 py-1.5 text-xs font-bold text-amber-200 hover:text-white bg-amber-500/20 hover:bg-amber-500/30 rounded-md border border-amber-400/30 flex items-center gap-1.5 transition-colors cursor-pointer"
+                title="Gestión Centralizada de Usuarios (Control Interno)"
+              >
+                <ShieldCheck className="w-3.5 h-3.5 text-amber-300" />
+                <span className="hidden sm:inline">Gestión Usuarios</span>
+              </button>
+            )}
 
 
 

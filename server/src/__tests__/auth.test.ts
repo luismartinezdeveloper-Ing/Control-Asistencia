@@ -36,120 +36,131 @@ describe('Auth API', () => {
   });
 
   // -----------------------------------------------------------------------
-  // POST /auth/register
+  // POST /auth/register (Closed System — 403 Forbidden for Public Self-Registration)
   // -----------------------------------------------------------------------
   describe('POST /auth/register', () => {
-    it('should reject emails that do not belong to @opeconca.net domain', async () => {
+    it('should return 403 Forbidden because public self-registration is disabled', async () => {
       const res = await request(app)
         .post('/auth/register')
         .set('x-skip-rate-limit', 'true')
         .send({
-          name: 'External User',
-          email: 'user@gmail.com',
+          name: 'Public User',
+          email: 'user@opeconca.net',
           password: 'TestPass123!',
           role: 'DEVELOPMENT_TEAM',
-        });
-
-      expect(res.status).toBe(400);
-      expect(res.body.error).toContain('@opeconca.net');
-    });
-
-    it('should create a new user with @opeconca.net and return 201 with Set-Cookie', async () => {
-      const res = await request(app)
-        .post('/auth/register')
-        .set('x-skip-rate-limit', 'true')
-        .send({
-          name: 'Test User',
-          email: 'test@opeconca.net',
-          password: 'TestPass123!',
-          role: 'DEVELOPMENT_TEAM',
-          department: 'TI',
-          site: 'Oficina Test',
-        });
-
-      expect(res.status).toBe(201);
-      expect(res.body.user).toBeDefined();
-      expect(res.body.user.name).toBe('Test User');
-      expect(res.body.user.email).toBe('test@opeconca.net');
-      expect(res.body.user.role).toBe('DEVELOPMENT_TEAM');
-
-      // Should NOT contain passwordHash
-      expect(res.body.user.passwordHash).toBeUndefined();
-
-      // Should set HttpOnly cookie
-      const cookies = res.headers['set-cookie'];
-      expect(cookies).toBeDefined();
-      const tokenCookie = Array.isArray(cookies)
-        ? cookies.find((c: string) => c.startsWith('token='))
-        : cookies;
-      expect(tokenCookie).toBeDefined();
-      expect(tokenCookie).toContain('HttpOnly');
-    });
-
-    it('should return 409 if email already exists', async () => {
-      const res = await request(app)
-        .post('/auth/register')
-        .set('x-skip-rate-limit', 'true')
-        .send({
-          name: 'Duplicate',
-          email: 'test@opeconca.net',
-          password: 'TestPass123!',
-        });
-
-      expect(res.status).toBe(409);
-      expect(res.body.error).toContain('Ya existe');
-    });
-
-    it('should return 400 if required fields are missing', async () => {
-      const res = await request(app)
-        .post('/auth/register')
-        .set('x-skip-rate-limit', 'true')
-        .send({ name: 'Incomplete' });
-
-      expect(res.status).toBe(400);
-    });
-
-    it('should return 403 for elevated role without auth code', async () => {
-      const res = await request(app)
-        .post('/auth/register')
-        .set('x-skip-rate-limit', 'true')
-        .send({
-          name: 'Wannabe Admin',
-          email: 'admin@opeconca.net',
-          password: 'TestPass123!',
-          role: 'PRODUCT_OWNER',
         });
 
       expect(res.status).toBe(403);
+      expect(res.body.error).toContain('deshabilitado');
+    });
+  });
+
+  // -----------------------------------------------------------------------
+  // Administrative User Management Endpoints (Internal Control)
+  // -----------------------------------------------------------------------
+  describe('Administrative User Management (Internal Control)', () => {
+    it('should return 401 for /auth/admin/users without authentication', async () => {
+      const res = await request(app).get('/auth/admin/users');
+      expect(res.status).toBe(401);
     });
 
-    it('should allow elevated role with correct auth code', async () => {
-      const res = await request(app)
-        .post('/auth/register')
+    it('should allow Product Owner to provision a new account via /auth/admin/users', async () => {
+      // Login as Product Owner (Luis Martinez seed account)
+      const loginRes = await request(app)
+        .post('/auth/login')
         .set('x-skip-rate-limit', 'true')
         .send({
-          name: 'Real Admin',
-          email: 'realadmin@opeconca.net',
-          password: 'TestPass123!',
-          role: 'PRODUCT_OWNER',
-          authCode: 'ADMIN2026',
+          email: 'lmartinez@opeconca.net',
+          password: 'Scrum2026!*',
         });
 
-      expect(res.status).toBe(201);
-      expect(res.body.user.role).toBe('PRODUCT_OWNER');
+      const cookies = loginRes.headers['set-cookie'];
+      const cookieHeader = Array.isArray(cookies) ? cookies.join('; ') : cookies;
+
+      // Admin creates new user
+      const createRes = await request(app)
+        .post('/auth/admin/users')
+        .set('Cookie', cookieHeader || '')
+        .send({
+          name: 'Nouveau Operador',
+          email: 'operador@opeconca.net',
+          password: 'Operador2026!*',
+          role: 'DEVELOPMENT_TEAM',
+          department: 'Operaciones',
+          site: 'Oficina Opeconca',
+        });
+
+      expect(createRes.status).toBe(201);
+      expect(createRes.body.user).toBeDefined();
+      expect(createRes.body.user.email).toBe('operador@opeconca.net');
+
+      // Verify newly created user can log in
+      const newLoginRes = await request(app)
+        .post('/auth/login')
+        .set('x-skip-rate-limit', 'true')
+        .send({
+          email: 'operador@opeconca.net',
+          password: 'Operador2026!*',
+        });
+
+      expect(newLoginRes.status).toBe(200);
+      expect(newLoginRes.body.user.email).toBe('operador@opeconca.net');
     });
 
-    it('should store passwords as bcrypt hashes (not plain text)', async () => {
-      // Read the users file directly to verify
-      const users = JSON.parse(fs.readFileSync(USERS_FILE, 'utf-8'));
-      const testUser = users.find((u: any) => u.email === 'test@opeconca.net');
+    it('should allow Product Owner to list all users via GET /auth/admin/users', async () => {
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .set('x-skip-rate-limit', 'true')
+        .send({
+          email: 'lmartinez@opeconca.net',
+          password: 'Scrum2026!*',
+        });
 
-      expect(testUser).toBeDefined();
-      expect(testUser.passwordHash).toBeDefined();
-      // bcrypt hashes start with $2a$ or $2b$
-      expect(testUser.passwordHash).toMatch(/^\$2[ab]\$/);
-      // Should NOT be the plain text password
-      expect(testUser.passwordHash).not.toBe('TestPass123!');
+      const cookies = loginRes.headers['set-cookie'];
+      const cookieHeader = Array.isArray(cookies) ? cookies.join('; ') : cookies;
+
+      const listRes = await request(app)
+        .get('/auth/admin/users')
+        .set('Cookie', cookieHeader || '');
+
+      expect(listRes.status).toBe(200);
+      expect(Array.isArray(listRes.body.users)).toBe(true);
+      expect(listRes.body.users.length).toBeGreaterThanOrEqual(4);
+    });
+
+    it('should allow Product Owner to reset a user password via /auth/admin/users/reset-password', async () => {
+      const loginRes = await request(app)
+        .post('/auth/login')
+        .set('x-skip-rate-limit', 'true')
+        .send({
+          email: 'lmartinez@opeconca.net',
+          password: 'Scrum2026!*',
+        });
+
+      const cookies = loginRes.headers['set-cookie'];
+      const cookieHeader = Array.isArray(cookies) ? cookies.join('; ') : cookies;
+
+      const resetRes = await request(app)
+        .post('/auth/admin/users/reset-password')
+        .set('Cookie', cookieHeader || '')
+        .send({
+          userId: 'usr_t_corona',
+          newPassword: 'NewCoronaPass2026!*',
+        });
+
+      expect(resetRes.status).toBe(200);
+      expect(resetRes.body.message).toContain('restablecida');
+
+      // Verify T. Corona can log in with new password
+      const coronaLoginRes = await request(app)
+        .post('/auth/login')
+        .set('x-skip-rate-limit', 'true')
+        .send({
+          email: 'tcorona@opeconca.net',
+          password: 'NewCoronaPass2026!*',
+        });
+
+      expect(coronaLoginRes.status).toBe(200);
     });
   });
 
@@ -175,13 +186,13 @@ describe('Auth API', () => {
         .post('/auth/login')
         .set('x-skip-rate-limit', 'true')
         .send({
-          email: 'test@opeconca.net',
-          password: 'TestPass123!',
+          email: 'lmartinez@opeconca.net',
+          password: 'Scrum2026!*',
         });
 
       expect(res.status).toBe(200);
       expect(res.body.user).toBeDefined();
-      expect(res.body.user.email).toBe('test@opeconca.net');
+      expect(res.body.user.email).toBe('lmartinez@opeconca.net');
       expect(res.body.user.passwordHash).toBeUndefined();
 
       // Should set cookie
@@ -209,7 +220,7 @@ describe('Auth API', () => {
         .post('/auth/login')
         .set('x-skip-rate-limit', 'true')
         .send({
-          email: 'test@opeconca.net',
+          email: 'lmartinez@opeconca.net',
           password: 'WrongPassword',
         });
 
@@ -247,8 +258,8 @@ describe('Auth API', () => {
         .post('/auth/login')
         .set('x-skip-rate-limit', 'true')
         .send({
-          email: 'test@opeconca.net',
-          password: 'TestPass123!',
+          email: 'lmartinez@opeconca.net',
+          password: 'Scrum2026!*',
         });
 
       // Extract cookie from login response
@@ -262,7 +273,7 @@ describe('Auth API', () => {
 
       expect(meRes.status).toBe(200);
       expect(meRes.body.user).toBeDefined();
-      expect(meRes.body.user.email).toBe('test@opeconca.net');
+      expect(meRes.body.user.email).toBe('lmartinez@opeconca.net');
       expect(meRes.body.user.passwordHash).toBeUndefined();
     });
 
@@ -280,8 +291,8 @@ describe('Auth API', () => {
         .post('/auth/login')
         .set('x-skip-rate-limit', 'true')
         .send({
-          email: 'test@opeconca.net',
-          password: 'TestPass123!',
+          email: 'lmartinez@opeconca.net',
+          password: 'Scrum2026!*',
         });
 
       const cookies = loginRes.headers['set-cookie'];
@@ -295,7 +306,7 @@ describe('Auth API', () => {
         .set('Authorization', `Bearer ${token}`);
 
       expect(meRes.status).toBe(200);
-      expect(meRes.body.user.email).toBe('test@opeconca.net');
+      expect(meRes.body.user.email).toBe('lmartinez@opeconca.net');
     });
   });
 
