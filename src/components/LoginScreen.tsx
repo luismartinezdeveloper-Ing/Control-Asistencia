@@ -428,47 +428,6 @@ export const LoginScreen: React.FC<LoginScreenProps> = ({ onLogin }) => {
                   </button>
                 </span>
               </div>
-
-              {/* Botones de Acceso Rápido Demo */}
-              <div className="pt-4 border-t border-slate-800/80">
-                <div className="flex items-center justify-between mb-2.5">
-                  <span className="text-[11px] font-bold text-slate-400 uppercase tracking-wider flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-amber-400" />
-                    Acceso Rápido Demo (1 Clic)
-                  </span>
-                  <span className="text-[10px] text-slate-500">Clave: {DEMO_PASSWORD_STANDARD}</span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                  {DEMO_ACCOUNTS.map((acc) => (
-                    <button
-                      key={acc.id}
-                      type="button"
-                      onClick={() => {
-                        setLoginEmail(acc.email);
-                        setLoginPassword(DEMO_PASSWORD_STANDARD);
-                        setErrorMsg(null);
-                      }}
-                      className="p-2.5 rounded-xl bg-slate-950/80 hover:bg-slate-800/80 border border-slate-800 hover:border-blue-500/50 text-left transition-all group cursor-pointer"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="text-xs font-bold text-slate-200 group-hover:text-blue-400 truncate">
-                          {acc.name}
-                        </span>
-                        <span className="text-[10px] px-1.5 py-0.5 rounded bg-blue-500/10 text-blue-400 border border-blue-500/20 shrink-0 font-medium">
-                          {acc.role === 'PRODUCT_OWNER'
-                            ? 'PO'
-                            : acc.role === 'SCRUM_MASTER'
-                            ? 'Scrum Master'
-                            : acc.role === 'DEVELOPMENT_TEAM'
-                            ? 'Dev Team'
-                            : 'Stakeholder'}
-                        </span>
-                      </div>
-                      <p className="text-[10.5px] text-slate-400 truncate mt-0.5">{acc.email}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
             </form>
           )}
 
