@@ -451,6 +451,233 @@ export const SAMPLE_ATTENDANCE_RECORDS: AttendanceRecord[] = [
     sourceFile: 'Biometrico_Opeconca_Septiembre.xlsx',
     notes: 'Inasistencia justificada: Reposo Médico IVSS #9482',
   },
+
+  // --- Extended Opeconca Staff ---
+  {
+    id: 'ope_10',
+    employeeName: 'Ricardo Gómez',
+    department: 'Administración & Finanzas',
+    site: 'Oficina Opeconca',
+    date: '2026-09-01',
+    earliestTime: '08:00:00',
+    latestTime: '17:30:00',
+    isNeutralCase: false,
+    grossHours: 9.5,
+    lunchDeductionHours: 1.5,
+    netHours: 8.0,
+    scheduledHours: 8.0,
+    varianceHours: 0.0,
+    status: 'CUMPLIDO',
+    sourceFile: 'Biometrico_Opeconca_Septiembre.xlsx',
+  },
+  {
+    id: 'ope_11',
+    employeeName: 'Patricia Morales',
+    department: 'Recursos Humanos',
+    site: 'Oficina Opeconca',
+    date: '2026-09-01',
+    earliestTime: '07:45:00',
+    latestTime: '17:45:00',
+    isNeutralCase: false,
+    grossHours: 10.0,
+    lunchDeductionHours: 1.5,
+    netHours: 8.5,
+    scheduledHours: 8.0,
+    varianceHours: 0.5,
+    status: 'SUPERAVIT',
+    sourceFile: 'Biometrico_Opeconca_Septiembre.xlsx',
+  },
+  {
+    id: 'ope_12',
+    employeeName: 'Héctor Salazar',
+    department: 'Tecnología y Sistemas',
+    site: 'Oficina Opeconca',
+    date: '2026-09-01',
+    earliestTime: '08:05:00',
+    latestTime: '17:35:00',
+    isNeutralCase: false,
+    grossHours: 9.5,
+    lunchDeductionHours: 1.5,
+    netHours: 8.0,
+    scheduledHours: 8.0,
+    varianceHours: 0.0,
+    status: 'CUMPLIDO',
+    sourceFile: 'Biometrico_Opeconca_Septiembre.xlsx',
+  },
+  {
+    id: 'ope_13',
+    employeeName: 'Elena Vivas',
+    department: 'Compras y Logística',
+    site: 'Oficina Opeconca',
+    date: '2026-09-01',
+    earliestTime: '08:20:00',
+    latestTime: '17:25:00',
+    isNeutralCase: false,
+    grossHours: 9.08,
+    lunchDeductionHours: 1.5,
+    netHours: 7.58,
+    scheduledHours: 8.0,
+    varianceHours: -0.42,
+    status: 'DEFICIT',
+    sourceFile: 'Biometrico_Opeconca_Septiembre.xlsx',
+  },
+
+  // --- Extended Nalys Staff ---
+  {
+    id: 'nal_9',
+    employeeName: 'Marcos Villegas',
+    department: 'Producción & Planta',
+    site: 'Nalys',
+    date: '2026-09-01',
+    earliestTime: '07:50:00',
+    latestTime: '17:30:00',
+    isNeutralCase: false,
+    grossHours: 9.67,
+    lunchDeductionHours: 1.5,
+    netHours: 8.17,
+    scheduledHours: 8.0,
+    varianceHours: 0.17,
+    status: 'SUPERAVIT',
+    sourceFile: 'Reporte_Diario_Nalys.xlsx',
+  },
+  {
+    id: 'nal_10',
+    employeeName: 'Diana Contreras',
+    department: 'Control de Calidad',
+    site: 'Nalys',
+    date: '2026-09-01',
+    earliestTime: '08:00:00',
+    latestTime: '17:30:00',
+    isNeutralCase: false,
+    grossHours: 9.5,
+    lunchDeductionHours: 1.5,
+    netHours: 8.0,
+    scheduledHours: 8.0,
+    varianceHours: 0.0,
+    status: 'CUMPLIDO',
+    sourceFile: 'Reporte_Diario_Nalys.xlsx',
+  },
+  {
+    id: 'nal_11',
+    employeeName: 'Samuel Pineda',
+    department: 'Mantenimiento Electromecánico',
+    site: 'Nalys',
+    date: '2026-09-01',
+    earliestTime: '08:00:00',
+    latestTime: '17:30:00',
+    isNeutralCase: false,
+    grossHours: 9.5,
+    lunchDeductionHours: 1.5,
+    netHours: 8.0,
+    scheduledHours: 8.0,
+    varianceHours: 0.0,
+    status: 'CUMPLIDO',
+    sourceFile: 'Reporte_Diario_Nalys.xlsx',
+  },
+  {
+    id: 'nal_12',
+    employeeName: 'Carolina Soto',
+    department: 'Almacén de Repuestos',
+    site: 'Nalys',
+    date: '2026-09-01',
+    earliestTime: '07:55:00',
+    latestTime: '17:30:00',
+    isNeutralCase: false,
+    grossHours: 9.58,
+    lunchDeductionHours: 1.5,
+    netHours: 8.08,
+    scheduledHours: 8.0,
+    varianceHours: 0.08,
+    status: 'CUMPLIDO',
+    sourceFile: 'Reporte_Diario_Nalys.xlsx',
+  },
+  {
+    id: 'nal_13',
+    employeeName: 'Andrés Albornoz',
+    department: 'Seguridad Industrial',
+    site: 'Nalys',
+    date: '2026-09-01',
+    earliestTime: '08:10:00',
+    latestTime: '17:15:00',
+    isNeutralCase: false,
+    grossHours: 9.08,
+    lunchDeductionHours: 1.5,
+    netHours: 7.58,
+    scheduledHours: 8.0,
+    varianceHours: -0.42,
+    status: 'DEFICIT',
+    sourceFile: 'Reporte_Diario_Nalys.xlsx',
+  },
+
+  // --- Extended UNEFA Staff ---
+  {
+    id: 'unefa_9',
+    employeeName: 'Beatriz Camacho',
+    department: 'Coordinación Académica',
+    site: 'UNEFA',
+    date: '2026-09-01',
+    earliestTime: '08:00:00',
+    latestTime: '17:30:00',
+    isNeutralCase: false,
+    grossHours: 9.5,
+    lunchDeductionHours: 1.5,
+    netHours: 8.0,
+    scheduledHours: 8.0,
+    varianceHours: 0.0,
+    status: 'CUMPLIDO',
+    sourceFile: 'Reporte_Diario_UNEFA.xlsx',
+  },
+  {
+    id: 'unefa_10',
+    employeeName: 'Manuel Quintero',
+    department: 'Soporte Técnico',
+    site: 'UNEFA',
+    date: '2026-09-01',
+    earliestTime: '07:50:00',
+    latestTime: '17:30:00',
+    isNeutralCase: false,
+    grossHours: 9.67,
+    lunchDeductionHours: 1.5,
+    netHours: 8.17,
+    scheduledHours: 8.0,
+    varianceHours: 0.17,
+    status: 'SUPERAVIT',
+    sourceFile: 'Reporte_Diario_UNEFA.xlsx',
+  },
+  {
+    id: 'unefa_11',
+    employeeName: 'Yolanda Suárez',
+    department: 'Biblioteca y Archivo',
+    site: 'UNEFA',
+    date: '2026-09-01',
+    earliestTime: '08:00:00',
+    latestTime: '17:30:00',
+    isNeutralCase: false,
+    grossHours: 9.5,
+    lunchDeductionHours: 1.5,
+    netHours: 8.0,
+    scheduledHours: 8.0,
+    varianceHours: 0.0,
+    status: 'CUMPLIDO',
+    sourceFile: 'Reporte_Diario_UNEFA.xlsx',
+  },
+  {
+    id: 'unefa_12',
+    employeeName: 'Jorge Colmenares',
+    department: 'Servicios Generales',
+    site: 'UNEFA',
+    date: '2026-09-01',
+    earliestTime: '07:45:00',
+    latestTime: '17:30:00',
+    isNeutralCase: false,
+    grossHours: 9.75,
+    lunchDeductionHours: 1.5,
+    netHours: 8.25,
+    scheduledHours: 8.0,
+    varianceHours: 0.25,
+    status: 'SUPERAVIT',
+    sourceFile: 'Reporte_Diario_UNEFA.xlsx',
+  },
 ];
 
 /**
@@ -486,14 +713,36 @@ export function computeEmployeeSummaries(records: AttendanceRecord[]): EmployeeS
         totalGross: 0,
         totalNet: 0,
         totalScheduled: 0,
+        diurnalOvertime: 0,
+        nocturnalOvertime: 0,
+        holidayWorked: 0,
+        unjustifiedAbsences: 0,
       });
     }
 
     const current = map.get(r.employeeName)!;
     current.totalDays += 1;
 
+    // Accumulate HR Overtime & Holiday
+    if (r.diurnalOvertimeHours) {
+      current.diurnalOvertime += r.diurnalOvertimeHours;
+    } else if (r.varianceHours > 0 && !r.isNeutralCase && !r.isAbsence) {
+      current.diurnalOvertime += r.varianceHours;
+    }
+
+    if (r.nocturnalOvertimeHours) {
+      current.nocturnalOvertime += r.nocturnalOvertimeHours;
+    }
+
+    if (r.holidayWorkedHours) {
+      current.holidayWorked += r.holidayWorkedHours;
+    } else if (r.isHoliday) {
+      current.holidayWorked += r.netHours;
+    }
+
     if (r.status === 'INASISTENCIA' || (r.isAbsence && !r.isJustified)) {
       current.absenceDays += 1;
+      current.unjustifiedAbsences += 1;
       current.validDays += 1;
       current.totalScheduled += r.scheduledHours || 8.0;
       // 0 net hours added
@@ -543,6 +792,10 @@ export function computeEmployeeSummaries(records: AttendanceRecord[]): EmployeeS
       varianceHours: variance,
       complianceRate: rate,
       status,
+      diurnalOvertimeHours: Math.round(data.diurnalOvertime * 100) / 100,
+      nocturnalOvertimeHours: Math.round(data.nocturnalOvertime * 100) / 100,
+      holidayWorkedHours: Math.round(data.holidayWorked * 100) / 100,
+      unjustifiedAbsenceCount: data.unjustifiedAbsences,
     });
   });
 
@@ -690,6 +943,14 @@ export function downloadSampleTemplate(format: 'OPECONCA' | 'NALYS' | 'UNEFA') {
       ['2026-09-01 17:35:12', '1058', 'Puerta Principal', 'Salida Fin Jornada', 'Mariana Silva'],
       ['2026-09-01 08:15:20', '1099', 'Puerta Principal', 'Entrada General', 'Javier Rodríguez'],
       ['2026-09-01 17:30:10', '1099', 'Puerta Principal', 'Salida Fin Jornada', 'Javier Rodríguez'],
+      ['2026-09-01 08:00:00', '1105', 'Puerta Principal', 'Entrada General', 'Ricardo Gómez'],
+      ['2026-09-01 17:30:00', '1105', 'Puerta Principal', 'Salida Fin Jornada', 'Ricardo Gómez'],
+      ['2026-09-01 07:45:00', '1112', 'Puerta Principal', 'Entrada General', 'Patricia Morales'],
+      ['2026-09-01 17:45:00', '1112', 'Puerta Principal', 'Salida Fin Jornada', 'Patricia Morales'],
+      ['2026-09-01 08:05:00', '1120', 'Puerta Principal', 'Entrada General', 'Héctor Salazar'],
+      ['2026-09-01 17:35:00', '1120', 'Puerta Principal', 'Salida Fin Jornada', 'Héctor Salazar'],
+      ['2026-09-01 08:20:00', '1134', 'Puerta Principal', 'Entrada General', 'Elena Vivas'],
+      ['2026-09-01 17:25:00', '1134', 'Puerta Principal', 'Salida Fin Jornada', 'Elena Vivas'],
       // Neutral case example (single punch)
       ['2026-09-02 08:05:00', '1058', 'Puerta Principal', 'Entrada General', 'Mariana Silva'],
     ];
@@ -704,13 +965,18 @@ export function downloadSampleTemplate(format: 'OPECONCA' | 'NALYS' | 'UNEFA') {
       ['2026-09-01', 'Andrea Morales', 'Logística', '07:50:00', '17:35:00'],
       ['2026-09-01', 'Roberto Gómez', 'Mantenimiento', '08:00:00', '17:30:00'],
       ['2026-09-01', 'Lucía Benítez', 'Calidad', '08:30:00', '17:15:00'],
+      ['2026-09-01', 'Marcos Villegas', 'Producción & Planta', '07:50:00', '17:30:00'],
+      ['2026-09-01', 'Diana Contreras', 'Control de Calidad', '08:00:00', '17:30:00'],
+      ['2026-09-01', 'Samuel Pineda', 'Mantenimiento Electromecánico', '08:00:00', '17:30:00'],
+      ['2026-09-01', 'Carolina Soto', 'Almacén de Repuestos', '07:55:00', '17:30:00'],
+      ['2026-09-01', 'Andrés Albornoz', 'Seguridad Industrial', '08:10:00', '17:15:00'],
       ['2026-09-02', 'Andrea Morales', 'Logística', '08:00:00', '17:30:00'],
       // Neutral case: only earliest time or earliest == latest
       ['2026-09-02', 'Roberto Gómez', 'Mantenimiento', '08:10:00', '08:10:00'],
       ['2026-09-02', 'Lucía Benítez', 'Calidad', '08:00:00', '17:30:00'],
     ];
     const ws = XLSX.utils.aoa_to_sheet(data);
-    ws['!cols'] = [{ wch: 16 }, { wch: 24 }, { wch: 20 }, { wch: 20 }, { wch: 18 }];
+    ws['!cols'] = [{ wch: 16 }, { wch: 24 }, { wch: 24 }, { wch: 20 }, { wch: 18 }];
     XLSX.utils.book_append_sheet(wb, ws, 'Reporte_Nalys');
     XLSX.writeFile(wb, 'Plantilla_Reporte_Nalys.xlsx');
   } else {
@@ -720,6 +986,10 @@ export function downloadSampleTemplate(format: 'OPECONCA' | 'NALYS' | 'UNEFA') {
       ['Gabriel', 'Castillo', '2026-09-01', 75500, 173500],
       ['Daniela', 'Paredes', '2026-09-01', 80000, 173000],
       ['Fernando', 'Rivas', '2026-09-01', 84000, 172000],
+      ['Beatriz', 'Camacho', '2026-09-01', 80000, 173000],
+      ['Manuel', 'Quintero', '2026-09-01', 75000, 173000],
+      ['Yolanda', 'Suárez', '2026-09-01', 80000, 173000],
+      ['Jorge', 'Colmenares', '2026-09-01', 74500, 173000],
       ['Gabriel', 'Castillo', '2026-09-02', 80000, 173000],
       // Neutral case: same time or missing end time
       ['Daniela', 'Paredes', '2026-09-02', 81200, 81200],

@@ -22,6 +22,7 @@ import {
   Code2,
   Eye,
   ShieldCheck,
+  KeyRound,
 } from 'lucide-react';
 import { GlobalKPIs, LoadedFileMeta } from '../types/attendance';
 import { UserAccount, ScrumRole } from '../types/auth';
@@ -39,6 +40,7 @@ export type AppTab =
 interface NavbarProps {
   currentUser: UserAccount | null;
   onLogout: () => void;
+  onOpenChangePassword?: () => void;
   activeTab: AppTab;
   onSelectTab: (tab: AppTab) => void;
   onExportExcel: () => void;
@@ -64,6 +66,7 @@ interface TabItem {
 export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   onLogout,
+  onOpenChangePassword,
   activeTab,
   onSelectTab,
   onExportExcel,
@@ -381,17 +384,33 @@ export const Navbar: React.FC<NavbarProps> = ({
                       </div>
                     </div>
 
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowUserMenu(false);
-                        onLogout();
-                      }}
-                      className="w-full py-2 px-3 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer"
-                    >
-                      <LogOut className="w-3.5 h-3.5" />
-                      <span>Cerrar Sesión Privada</span>
-                    </button>
+                    <div className="space-y-1.5">
+                      {onOpenChangePassword && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            onOpenChangePassword();
+                          }}
+                          className="w-full py-2 px-3 rounded-lg bg-blue-50 hover:bg-blue-100 text-[#1F4E79] font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-xs"
+                        >
+                          <KeyRound className="w-3.5 h-3.5" />
+                          <span>Cambiar Contraseña</span>
+                        </button>
+                      )}
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowUserMenu(false);
+                          onLogout();
+                        }}
+                        className="w-full py-2 px-3 rounded-lg bg-rose-50 hover:bg-rose-100 text-rose-700 font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-xs"
+                      >
+                        <LogOut className="w-3.5 h-3.5" />
+                        <span>Cerrar Sesión Privada</span>
+                      </button>
+                    </div>
                   </div>
                 )}
               </div>

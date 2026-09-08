@@ -61,6 +61,23 @@ export async function parseExcelWithWorker(
   overrideDate?: string,
   overrideSite?: string
 ): Promise<ParseResult> {
+  // 1. File Size Validation (Max 50MB)
+  const MAX_FILE_SIZE_BYTES = 50 * 1024 * 1024;
+  if (file.size > MAX_FILE_SIZE_BYTES) {
+    throw new Error(
+      `El archivo "${file.name}" supera el tamaño máximo permitido de 50MB (${(file.size / (1024 * 1024)).toFixed(1)}MB). Por favor divide el archivo o reduce el volumen de datos.`
+    );
+  }
+
+  // 2. File Extension Validation
+  const validExtensions = ['.xlsx', '.xls', '.csv', '.xlsm', '.ods'];
+  const ext = file.name.slice(file.name.lastIndexOf('.')).toLowerCase();
+  if (!validExtensions.includes(ext)) {
+    throw new Error(
+      `Formato de archivo no soportado ("${ext}"). Los formatos válidos son: ${validExtensions.join(', ')}.`
+    );
+  }
+
   const arrayBuffer = await file.arrayBuffer();
   const worker = getWorker();
 

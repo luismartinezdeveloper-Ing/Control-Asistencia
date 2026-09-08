@@ -1,10 +1,8 @@
-import bcrypt from 'bcryptjs';
-import { UserAccount, ScrumSprint } from '../types/auth';
-import { createJWT, verifyJWT, saveStoredJWTToken, getStoredJWTToken } from './jwt';
+import { UserAccount, ScrumRole, ScrumSprint } from '../types/auth';
+import { apiFetch, ApiError } from './api';
+import { saveStoredJWTToken } from './jwt';
 
-const SALT_ROUNDS = 10;
 const AUTH_USER_KEY = 'attendance_app_current_user';
-const ALL_USERS_KEY = 'attendance_app_all_users';
 const SPRINT_DATA_KEY = 'attendance_app_scrum_sprint';
 
 /**
@@ -15,45 +13,6 @@ const SPRINT_DATA_KEY = 'attendance_app_scrum_sprint';
 export const DEMO_PASSWORD_STANDARD = 'Scrum2026!*';
 export const DEMO_PASSWORD_LEGACY = 'scrum2026';
 
-const DEFAULT_DEMO_HASH = bcrypt.hashSync(DEMO_PASSWORD_STANDARD, SALT_ROUNDS);
-const LEGACY_DEMO_HASH = bcrypt.hashSync(DEMO_PASSWORD_LEGACY, SALT_ROUNDS);
-
-/**
- * Securely hashes a plain-text password using bcryptjs.
- * Ensures that plain-text credentials are never persisted to storage.
- */
-export function hashPassword(plainText: string): string {
-  if (!plainText) {
-    throw new Error('No se puede generar hash para una contraseña vacía.');
-  }
-  return bcrypt.hashSync(plainText, SALT_ROUNDS);
-}
-
-/**
- * Validates a plain-text candidate password against a stored bcrypt hash.
- * Also checks standard demo passwords if applicable.
- */
-export function verifyPassword(plainText: string, hash: string): boolean {
-  if (!plainText || !hash) return false;
-  try {
-    const directMatch = bcrypt.compareSync(plainText, hash);
-    if (directMatch) return true;
-
-    // Graceful fallback check for standard demo pass vs legacy demo pass
-    if (plainText === DEMO_PASSWORD_STANDARD || plainText === DEMO_PASSWORD_LEGACY) {
-      return (
-        bcrypt.compareSync(plainText, DEFAULT_DEMO_HASH) ||
-        bcrypt.compareSync(plainText, LEGACY_DEMO_HASH)
-      );
-    }
-
-    return false;
-  } catch (err) {
-    console.warn('Error verifying password with bcryptjs:', err);
-    return false;
-  }
-}
-
 /**
  * Strips sensitive password hash from the user object for in-memory session usage.
  */
@@ -62,173 +21,186 @@ export function sanitizeUser(user: UserAccount): UserAccount {
   return safeUser as UserAccount;
 }
 
+/**
+ * Demo account data kept client-side for the Quick Login UI buttons only.
+ * Actual authentication always goes through the backend.
+ */
 export const DEMO_ACCOUNTS: UserAccount[] = [
   {
-    id: 'usr_po_1',
-    name: 'Ing. Carlos Mendoza',
-    email: 'carlos.mendoza@empresa.com',
+    id: 'usr_luis_martinez',
+    name: 'Ing. Luis Martinez',
+    email: 'lmartinez@opeconca.net',
     role: 'PRODUCT_OWNER',
     roleTitle: 'Product Owner / Gerente General',
     department: 'Dirección General',
     site: 'Oficina Opeconca',
-    passwordHash: DEFAULT_DEMO_HASH,
+    linkedEmployeeName: 'LUIS MARTINEZ',
   },
   {
-    id: 'usr_sm_1',
-    name: 'Lic. Mariana Rivas',
-    email: 'mariana.rivas@empresa.com',
+    id: 'usr_nieves_araque',
+    name: 'Nieves Araque',
+    email: 'naraque@grupoopeconca.com',
+    role: 'PRODUCT_OWNER',
+    roleTitle: 'Product Owner / Recursos Humanos',
+    department: 'Recursos Humanos',
+    site: 'Oficina Opeconca',
+    linkedEmployeeName: 'NIEVES ARAQUE',
+  },
+  {
+    id: 'usr_asistente_rrhh',
+    name: 'Asistente RRHH',
+    email: 'arrhh@opeconca.net',
     role: 'SCRUM_MASTER',
-    roleTitle: 'Scrum Master / Jefe RRHH & Operaciones',
-    department: 'Recursos Humanos y Auditoría',
+    roleTitle: 'Scrum Master / Asistente de RRHH',
+    department: 'Recursos Humanos',
     site: 'Oficina Opeconca',
-    passwordHash: DEFAULT_DEMO_HASH,
+    linkedEmployeeName: 'ASISTENTE RRHH',
   },
   {
-    id: 'usr_dev_1',
-    name: 'José Morales',
-    email: 'jose.morales@empresa.com',
-    role: 'DEVELOPMENT_TEAM',
-    roleTitle: 'Dev Team Member / Especialista de Planta',
-    department: 'Mantenimiento & Producción',
-    site: 'Nalys',
-    linkedEmployeeName: 'JOSE MORALES',
-    passwordHash: DEFAULT_DEMO_HASH,
-  },
-  {
-    id: 'usr_dev_2',
-    name: 'María Fernández',
-    email: 'maria.fernandez@empresa.com',
-    role: 'DEVELOPMENT_TEAM',
-    roleTitle: 'Dev Team Member / Analista Técnico',
-    department: 'Operaciones',
-    site: 'Oficina Opeconca',
-    linkedEmployeeName: 'MARIA FERNANDEZ',
-    passwordHash: DEFAULT_DEMO_HASH,
-  },
-  {
-    id: 'usr_stk_1',
-    name: 'Dr. Roberto Salas',
-    email: 'roberto.salas@auditoria.com',
+    id: 'usr_t_corona',
+    name: 'T. Corona',
+    email: 'tcorona@opeconca.net',
     role: 'STAKEHOLDER',
-    roleTitle: 'Stakeholder / Auditor Externo',
-    department: 'Comité de Control y Finanzas',
-    site: 'UNEFA',
-    passwordHash: DEFAULT_DEMO_HASH,
+    roleTitle: 'Stakeholder / Asistente Administrativo',
+    department: 'Administración',
+    site: 'Oficina Opeconca',
+    linkedEmployeeName: 'T CORONA',
   },
 ];
 
-/**
- * Retrieves all registered user accounts with their bcrypt hashes.
- */
-export function getStoredUsers(): UserAccount[] {
-  try {
-    const raw = localStorage.getItem(ALL_USERS_KEY);
-    if (!raw) {
-      // Seed with initial demo accounts (all with bcrypt hashed passwords)
-      localStorage.setItem(ALL_USERS_KEY, JSON.stringify(DEMO_ACCOUNTS));
-      return DEMO_ACCOUNTS;
-    }
-    const parsed = JSON.parse(raw) as UserAccount[];
-    if (!Array.isArray(parsed) || parsed.length === 0) {
-      localStorage.setItem(ALL_USERS_KEY, JSON.stringify(DEMO_ACCOUNTS));
-      return DEMO_ACCOUNTS;
-    }
-    return parsed;
-  } catch {
-    return DEMO_ACCOUNTS;
-  }
-}
+// ---------------------------------------------------------------------------
+// API-backed authentication functions
+// ---------------------------------------------------------------------------
 
 /**
- * Saves users list securely to localStorage.
+ * Authenticate a user via the backend /auth/login endpoint.
+ * The server validates credentials, creates a JWT, and sets an HttpOnly cookie.
  */
-export function saveStoredUsers(users: UserAccount[]): void {
-  try {
-    localStorage.setItem(ALL_USERS_KEY, JSON.stringify(users));
-  } catch (err) {
-    console.warn('Error saving users to storage:', err);
-  }
-}
-
-/**
- * Authenticates user credentials using bcryptjs and returns sanitized user.
- */
-export function authenticateUser(
+export async function loginUser(
   email: string,
   plainPassword: string
-): { success: boolean; user?: UserAccount; error?: string } {
-  const normalizedEmail = email.trim().toLowerCase();
-  const users = getStoredUsers();
+): Promise<{ success: boolean; user?: UserAccount; error?: string }> {
+  try {
+    const data = await apiFetch<{ user: UserAccount }>('/auth/login', {
+      method: 'POST',
+      body: JSON.stringify({ email: email.trim().toLowerCase(), password: plainPassword }),
+    });
 
-  const user = users.find((u) => u.email.toLowerCase() === normalizedEmail);
-  if (!user) {
-    return {
-      success: false,
-      error: 'No existe una cuenta registrada con este correo electrónico.',
-    };
+    return { success: true, user: data.user };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { success: false, error: err.message };
+    }
+    return { success: false, error: 'Error de conexión con el servidor de autenticación.' };
   }
-
-  if (!user.passwordHash) {
-    return {
-      success: false,
-      error: 'La cuenta de usuario no tiene credenciales válidas configuradas.',
-    };
-  }
-
-  const isValid = verifyPassword(plainPassword, user.passwordHash);
-  if (!isValid) {
-    return {
-      success: false,
-      error: 'Contraseña incorrecta. Por favor verifica tus credenciales.',
-    };
-  }
-
-  return {
-    success: true,
-    user: sanitizeUser(user),
-  };
 }
 
 /**
- * Session verification: verifies JWT token validity and matches it with stored user
+ * Register a new user via the backend /auth/register endpoint.
+ */
+export async function registerUser(payload: {
+  name: string;
+  email: string;
+  password: string;
+  role?: ScrumRole;
+  roleTitle?: string;
+  department?: string;
+  site?: string;
+  linkedEmployeeName?: string;
+  authCode?: string;
+}): Promise<{ success: boolean; user?: UserAccount; error?: string }> {
+  try {
+    const data = await apiFetch<{ user: UserAccount }>('/auth/register', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    });
+
+    return { success: true, user: data.user };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { success: false, error: err.message };
+    }
+    return { success: false, error: 'Error de conexión con el servidor al registrar la cuenta.' };
+  }
+}
+
+/**
+ * Log out the current user — clears the HttpOnly cookie via backend
+ * and removes the local user data.
+ */
+export async function logoutUser(): Promise<void> {
+  try {
+    await apiFetch('/auth/logout', { method: 'POST' });
+  } catch {
+    // Even if the server call fails, clear local state
+  }
+  saveStoredCurrentUser(null);
+  saveStoredJWTToken(null);
+}
+
+/**
+ * Session verification: calls backend /auth/me to validate the HttpOnly cookie.
+ * Returns the authenticated user if the session is valid.
  */
 export async function verifyCurrentSession(): Promise<{
   valid: boolean;
   user: UserAccount | null;
   error?: string;
 }> {
-  const token = getStoredJWTToken();
   const storedUser = getStoredCurrentUser();
 
-  if (!token || !storedUser) {
+  // If no stored user, session is invalid (no point calling backend)
+  if (!storedUser) {
     return { valid: false, user: null };
   }
 
-  const verification = await verifyJWT(token);
-  if (!verification.valid || !verification.payload) {
+  try {
+    const data = await apiFetch<{ user: UserAccount }>('/auth/me');
+    return { valid: true, user: data.user };
+  } catch (err) {
+    // Session invalid — clear local storage
     saveStoredCurrentUser(null);
     saveStoredJWTToken(null);
-    return {
-      valid: false,
-      user: null,
-      error: verification.error || 'La sesión de usuario no es válida o ha caducado.',
-    };
-  }
 
-  return {
-    valid: true,
-    user: {
-      ...storedUser,
-      jwtToken: token,
-    },
-  };
+    const errorMessage =
+      err instanceof ApiError
+        ? err.message
+        : 'La sesión de usuario no es válida o ha caducado.';
+
+    return { valid: false, user: null, error: errorMessage };
+  }
 }
+
+/**
+ * Change current logged-in user's password via /auth/change-password endpoint.
+ */
+export async function changePasswordUser(
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; message?: string; error?: string }> {
+  try {
+    const data = await apiFetch<{ message: string }>('/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ currentPassword, newPassword }),
+    });
+    return { success: true, message: data.message };
+  } catch (err) {
+    if (err instanceof ApiError) {
+      return { success: false, error: err.message };
+    }
+    return { success: false, error: 'Error de conexión con el servidor.' };
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Local storage helpers (for user session data — NOT credentials)
+// ---------------------------------------------------------------------------
 
 export function getStoredCurrentUser(): UserAccount | null {
   try {
     const raw = localStorage.getItem(AUTH_USER_KEY);
     if (!raw) return null;
-    return sanitizeUser(JSON.parse(raw) as UserAccount);
+    return JSON.parse(raw) as UserAccount;
   } catch {
     return null;
   }
@@ -248,6 +220,10 @@ export function saveStoredCurrentUser(user: UserAccount | null): void {
     console.warn('Error saving current user:', err);
   }
 }
+
+// ---------------------------------------------------------------------------
+// Sprint storage (unchanged)
+// ---------------------------------------------------------------------------
 
 export const INITIAL_SPRINT: ScrumSprint = {
   id: 'sprint_w36',

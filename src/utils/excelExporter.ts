@@ -8,6 +8,20 @@ import {
   SCHEDULED_DAILY_HOURS,
 } from './timeUtils';
 
+/**
+ * Sanitizes cell values to prevent CSV / Excel formula injection (CWE-1236).
+ * If a string starts with '=', '+', '-', '@', '\t', or '\r', it prepends a single quote.
+ */
+export function sanitizeExcelCell<T extends string | number | boolean | null | undefined>(val: T): T {
+  if (typeof val === 'string') {
+    // Check both raw start (for tab/cr injection) and trimmed start (for formula tokens)
+    if (/^[=+\-@\t\r]/.test(val) || /^[=+\-@\t\r]/.test(val.trim())) {
+      return `'${val}` as unknown as T;
+    }
+  }
+  return val;
+}
+
 export function exportConsolidatedExcel(
   records: AttendanceRecord[],
   employeeSummaries: EmployeeSummary[],
@@ -76,7 +90,7 @@ export function exportConsolidatedExcel(
   XLSX.utils.book_append_sheet(wb, wsControl, 'Panel de Control');
 
   // -------------------------------------------------------------
-  // Sheet 2: Resumen por Empleado
+  // Sheet 2: Resumen por Empleado & Novedades de Nómina
   // -------------------------------------------------------------
   const employeeData: (string | number)[][] = [
     [
@@ -90,6 +104,10 @@ export function exportConsolidatedExcel(
       'Horas Netas (h)',
       'Horas Programadas (h)',
       'Diferencia / Balance (h)',
+      'HE Diurnas (h)',
+      'HE Nocturnas (h)',
+      'Horas Feriadas (h)',
+      'Faltas Injustificadas',
       '% Cumplimiento',
       'Estado',
     ],
@@ -101,9 +119,9 @@ export function exportConsolidatedExcel(
     if (emp.status === 'CON_OBSERVACION') estado = 'Requiere Revisión';
 
     employeeData.push([
-      emp.employeeName,
-      emp.site,
-      emp.department,
+      sanitizeExcelCell(emp.employeeName),
+      sanitizeExcelCell(emp.site),
+      sanitizeExcelCell(emp.department),
       emp.totalDays,
       emp.validDays,
       emp.neutralDays,
@@ -111,6 +129,10 @@ export function exportConsolidatedExcel(
       emp.totalNetHours,
       emp.totalScheduledHours,
       emp.varianceHours,
+      emp.diurnalOvertimeHours || 0,
+      emp.nocturnalOvertimeHours || 0,
+      emp.holidayWorkedHours || 0,
+      emp.unjustifiedAbsenceCount || 0,
       `${emp.complianceRate.toFixed(1)}%`,
       estado,
     ]);
@@ -128,6 +150,10 @@ export function exportConsolidatedExcel(
     { wch: 16 },
     { wch: 22 },
     { wch: 22 },
+    { wch: 18 },
+    { wch: 18 },
+    { wch: 20 },
+    { wch: 20 },
     { wch: 16 },
     { wch: 18 },
   ];
@@ -162,20 +188,20 @@ export function exportConsolidatedExcel(
     if (rec.status === 'NEUTRAL') statusText = 'Incompleto / Caso Neutral';
 
     dailyData.push([
-      rec.date,
-      rec.employeeName,
-      rec.site,
-      rec.department,
-      rec.earliestTime,
-      rec.latestTime,
+      sanitizeExcelCell(rec.date),
+      sanitizeExcelCell(rec.employeeName),
+      sanitizeExcelCell(rec.site),
+      sanitizeExcelCell(rec.department),
+      sanitizeExcelCell(rec.earliestTime),
+      sanitizeExcelCell(rec.latestTime),
       rec.isNeutralCase ? 'N/A' : rec.grossHours,
       rec.isNeutralCase ? 0 : rec.lunchDeductionHours,
       rec.isNeutralCase ? 0 : rec.netHours,
       rec.isNeutralCase ? 0 : rec.scheduledHours,
       rec.isNeutralCase ? 0 : rec.varianceHours,
       statusText,
-      rec.sourceFile,
-      rec.notes || (rec.isNeutralCase ? 'Marcación única sin penalización' : 'Jornada normal'),
+      sanitizeExcelCell(rec.sourceFile),
+      sanitizeExcelCell(rec.notes || (rec.isNeutralCase ? 'Marcación única sin penalización' : 'Jornada normal')),
     ]);
   });
 
@@ -327,19 +353,19 @@ export function exportDailyExcel(date: string, records: AttendanceRecord[]) {
     if (r.status === 'NEUTRAL') estado = 'Caso Neutral / Incompleto';
 
     detailData.push([
-      r.employeeName,
-      r.site,
-      r.department,
-      r.earliestTime,
-      r.latestTime,
+      sanitizeExcelCell(r.employeeName),
+      sanitizeExcelCell(r.site),
+      sanitizeExcelCell(r.department),
+      sanitizeExcelCell(r.earliestTime),
+      sanitizeExcelCell(r.latestTime),
       r.isNeutralCase ? 'N/A' : r.grossHours,
       r.isNeutralCase ? 0 : r.lunchDeductionHours,
       r.isNeutralCase ? 0 : r.netHours,
       r.isNeutralCase ? 0 : r.scheduledHours,
       r.isNeutralCase ? 0 : r.varianceHours,
       estado,
-      r.sourceFile,
-      r.notes || (r.isNeutralCase ? 'Marcación única sin penalización' : 'Jornada normal'),
+      sanitizeExcelCell(r.sourceFile),
+      sanitizeExcelCell(r.notes || (r.isNeutralCase ? 'Marcación única sin penalización' : 'Jornada normal')),
     ]);
   });
 
@@ -622,6 +648,7 @@ export function exportDetailedAttendanceExcel(
   const headerRow: (string | number)[] = [
     'Grabar fecha',
     'Apellido y Nombre',
+    'Sede / Sucursal',
     'Departamento',
     'Hora más temprana',
     'última Hora',
@@ -644,6 +671,7 @@ export function exportDetailedAttendanceExcel(
   sortedRecords.forEach((r) => {
     const cleanDate = r.date || '';
     const cleanName = (r.employeeName || '').trim().toUpperCase();
+    const cleanSite = (r.site || 'Oficina Opeconca').trim();
     const cleanDept = (r.department || 'OPERACIONES').trim().toUpperCase();
 
     // Earliest and latest punches
@@ -658,6 +686,7 @@ export function exportDetailedAttendanceExcel(
     const row: (string | number)[] = [
       cleanDate,
       cleanName,
+      cleanSite,
       cleanDept,
       horaTemprana,
       ultimaHora,
@@ -697,7 +726,7 @@ export function exportDetailedAttendanceExcel(
       );
     }
 
-    sheetRows.push(row);
+    sheetRows.push(row.map(sanitizeExcelCell));
   });
 
   const wsMain = XLSX.utils.aoa_to_sheet(sheetRows);
@@ -706,6 +735,7 @@ export function exportDetailedAttendanceExcel(
   const cols = [
     { wch: 14 }, // Grabar fecha
     { wch: 34 }, // Apellido y Nombre
+    { wch: 22 }, // Sede / Sucursal
     { wch: 22 }, // Departamento
     { wch: 18 }, // Hora más temprana
     { wch: 18 }, // última Hora
