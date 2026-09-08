@@ -202,18 +202,7 @@ export const Navbar: React.FC<NavbarProps> = ({
               <span className="hidden sm:inline">Reglas</span>
             </button>
 
-            {!hasData && canUpload && (
-              <button
-                id="btn-load-demo"
-                type="button"
-                onClick={onLoadSampleData}
-                className="px-2.5 py-1.5 text-xs font-semibold text-amber-200 hover:text-amber-100 bg-amber-500/20 hover:bg-amber-500/30 rounded-md border border-amber-400/30 flex items-center gap-1.5 transition-colors cursor-pointer"
-                title="Cargar datos de ejemplo"
-              >
-                <Sparkles className="w-3.5 h-3.5 text-amber-300" />
-                <span>Datos Demo</span>
-              </button>
-            )}
+
 
             {hasData && canUpload && (
               <button

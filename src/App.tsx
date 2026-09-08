@@ -133,13 +133,13 @@ export default function App() {
     return 'dashboard';
   });
 
-  // Hydrate records and files from localStorage if present, otherwise initial demo
+  // Hydrate records and files from localStorage if present
   const [records, setRecords] = useState<AttendanceRecord[]>(() => {
     const stored = loadStoredAttendance();
     if (stored && stored.records && stored.records.length > 0) {
       return repairRecordsSite(stored.records);
     }
-    return SAMPLE_ATTENDANCE_RECORDS;
+    return [];
   });
 
   const [loadedFiles, setLoadedFiles] = useState<LoadedFileMeta[]>(() => {
@@ -147,32 +147,7 @@ export default function App() {
     if (stored && stored.loadedFiles && stored.loadedFiles.length > 0) {
       return stored.loadedFiles;
     }
-    return [
-      {
-        id: 'demo-opeconca',
-        name: 'Biometrico_Opeconca_Septiembre.xlsx',
-        size: 45200,
-        format: 'OPECONCA',
-        recordsCount: 8,
-        loadedAt: new Date(),
-      },
-      {
-        id: 'demo-nalys',
-        name: 'Reporte_Diario_Nalys.xlsx',
-        size: 38400,
-        format: 'NALYS',
-        recordsCount: 8,
-        loadedAt: new Date(),
-      },
-      {
-        id: 'demo-unefa',
-        name: 'Reporte_Diario_UNEFA.xlsx',
-        size: 41200,
-        format: 'UNEFA',
-        recordsCount: 7,
-        loadedAt: new Date(),
-      },
-    ];
+    return [];
   });
 
   const [isLoading, setIsLoading] = useState(false);
@@ -201,12 +176,12 @@ export default function App() {
     const stored = loadStoredAttendance();
     if (stored && stored.records && stored.records.length > 0) {
       return {
-        text: `Se han restaurado ${stored.records.length} registros guardados en tu almacenamiento local.`,
+        text: `Se han cargado ${stored.records.length} registros guardados en almacenamiento local.`,
         type: 'success',
       };
     }
     return {
-      text: 'Datos iniciales listos. Sistema privado Scrum activo.',
+      text: 'Sistema en entorno de producción. Carga tus archivos de asistencia para iniciar.',
       type: 'info',
     };
   });
