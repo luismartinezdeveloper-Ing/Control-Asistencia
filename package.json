@@ -4,7 +4,7 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "concurrently -k -p \"[{name}]\" -n \"SERVER,VITE\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:client\"",
+    "dev": "concurrently -P -k -p \"[{name}]\" -n \"SERVER,VITE\" -c \"blue,green\" \"npm run dev:server\" \"npm run dev:client\"",
     "dev:client": "vite --port=3000 --host=0.0.0.0",
     "build": "vite build",
     "preview": "vite preview",
