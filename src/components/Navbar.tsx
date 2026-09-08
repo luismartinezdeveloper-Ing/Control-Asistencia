@@ -68,6 +68,7 @@ export const Navbar: React.FC<NavbarProps> = ({
   currentUser,
   onLogout,
   onOpenChangePassword,
+  onOpenUserManagement,
   activeTab,
   onSelectTab,
   onExportExcel,
@@ -388,6 +389,20 @@ export const Navbar: React.FC<NavbarProps> = ({
                     </div>
 
                     <div className="space-y-1.5">
+                      {(currentUser?.role === 'PRODUCT_OWNER' || currentUser?.role === 'SCRUM_MASTER') && onOpenUserManagement && (
+                        <button
+                          type="button"
+                          onClick={() => {
+                            setShowUserMenu(false);
+                            onOpenUserManagement();
+                          }}
+                          className="w-full py-2 px-3 rounded-lg bg-amber-50 hover:bg-amber-100 text-amber-900 font-bold transition-colors flex items-center justify-center gap-1.5 cursor-pointer text-xs"
+                        >
+                          <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
+                          <span>Gestión de Usuarios</span>
+                        </button>
+                      )}
+
                       {onOpenChangePassword && (
                         <button
                           type="button"
