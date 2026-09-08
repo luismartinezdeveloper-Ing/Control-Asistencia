@@ -54,8 +54,8 @@ seedDemoAccounts();
 // Export for testing
 export default app;
 
-// Start server only if not in test mode
-if (process.env.NODE_ENV !== 'test') {
+// Start server only if not in test or Vercel serverless mode
+if (process.env.NODE_ENV !== 'test' && !process.env.VERCEL) {
   app.listen(PORT, () => {
     console.log(`✅ Auth Server running on http://localhost:${PORT}`);
     console.log(`   CORS origin: ${process.env.APP_URL || 'http://localhost:3000'}`);
